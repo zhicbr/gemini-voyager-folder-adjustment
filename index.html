@@ -125,6 +125,9 @@
         .nav-btn:hover:not(:disabled) { background: var(--hover-bg); }
         .nav-btn:disabled { opacity: 0.4; cursor: not-allowed; }
         .breadcrumb { font-size: 18px; font-weight: 500; color: var(--text-main); }
+        
+        /* --- 核心修改 1/3：新增面包屑旁的统计文本样式 --- */
+        .breadcrumb-count { font-size: 14px; color: var(--text-secondary); margin-left: 8px; font-weight: normal; transition: color 0.3s ease; }
 
         /* Grid/List View */
         .grid-view { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
@@ -135,9 +138,8 @@
         
         .item-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
         
-        /* 核心修改：放大图标，增加悬浮动效 */
         .item-icon { 
-            font-size: 44px; /* 图标放大 */
+            font-size: 44px; 
             cursor: pointer; 
             display: inline-block; 
             line-height: 1; 
@@ -145,12 +147,12 @@
             transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), filter 0.2s ease; 
         }
         .item-icon:hover { 
-            transform: scale(1.15); /* 悬浮时进一步放大 */
+            transform: scale(1.15); 
         }
         .item-icon.folder { color: #fbbc04; }
-        .item-icon.folder:hover { filter: drop-shadow(0px 4px 12px rgba(251, 188, 4, 0.6)); } /* 文件夹发黄光 */
+        .item-icon.folder:hover { filter: drop-shadow(0px 4px 12px rgba(251, 188, 4, 0.6)); } 
         .item-icon.file { color: #4285f4; }
-        .item-icon.file:hover { filter: drop-shadow(0px 4px 12px rgba(66, 133, 244, 0.6)); } /* 文件发蓝光 */
+        .item-icon.file:hover { filter: drop-shadow(0px 4px 12px rgba(66, 133, 244, 0.6)); } 
         
         /* Title and Icons */
         .item-title-wrapper { display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; }
@@ -225,6 +227,7 @@
             </div>
             <div class="breadcrumb">
                 <span id="breadcrumbText">根目录</span>
+                <span id="breadcrumbCount" class="breadcrumb-count"></span>
             </div>
         </div>
         <div class="grid-view" id="contentGrid"></div>
@@ -332,6 +335,22 @@
     function getFiles(folderId) { return getFolderContents()[folderId] || []; }
     function getFolderById(id) { return getFolders().find(f => f.id === id); }
 
+    // --- 核心修改 3/3：新增递归统计文件的函数 --- 
+    function getRecursiveFileCount(folderId) {
+        let count = 0;
+        if (folderId === null) {
+            // 如果在根目录，加上所有未分配直接归属的文件（防错机制）和特有的根文件集
+            count += (getFolderContents()[null] || []).length;
+            count += (getFolderContents()['__root_conversations__'] || []).length;
+        } else {
+            count += getFiles(folderId).length;
+        }
+        getChildrenFolders(folderId).forEach(sub => {
+            count += getRecursiveFileCount(sub.id);
+        });
+        return count;
+    }
+
     function findSourceId(type, id) {
         if (type === 'folder') return getFolderById(id)?.parentId;
         for (const [fId, files] of Object.entries(getFolderContents())) {
@@ -408,7 +427,19 @@
     }
 
     function navigateToFolder(folderId) {
-        if (store.currentFolderId === folderId) return;
+        // 核心修复：如果是搜索状态，先清空搜索框和状态
+        let wasSearching = !!store.searchQuery;
+        if (wasSearching) {
+            store.searchQuery = '';
+            document.getElementById('searchInput').value = '';
+        }
+        
+        // 如果点击的是当前所在目录，但在搜索中，需要重新渲染以退出搜索视图
+        if (store.currentFolderId === folderId) {
+            if (wasSearching) renderAll(); 
+            return;
+        }
+        
         navHistory = navHistory.slice(0, navIndex + 1);
         navHistory.push(folderId);
         navIndex++;
@@ -417,6 +448,7 @@
     }
 
     function goBack() {
+        if (store.searchQuery) { store.searchQuery = ''; document.getElementById('searchInput').value = ''; }
         if (navIndex > 0) {
             navIndex--;
             store.currentFolderId = navHistory[navIndex];
@@ -425,6 +457,7 @@
     }
 
     function goForward() {
+        if (store.searchQuery) { store.searchQuery = ''; document.getElementById('searchInput').value = ''; }
         if (navIndex < navHistory.length - 1) {
             navIndex++;
             store.currentFolderId = navHistory[navIndex];
@@ -606,6 +639,7 @@
     function renderMainContent() {
         contentGrid.innerHTML = '';
         let itemsToRender = [];
+        const breadcrumbCount = document.getElementById('breadcrumbCount'); // 获取新增的计数标签
 
         if (store.searchQuery) {
             breadcrumbText.textContent = `搜索结果: "${store.searchQuery}"`;
@@ -614,6 +648,12 @@
             Object.entries(getFolderContents()).forEach(([fId, files]) => {
                 files.forEach(file => { if (file.title.toLowerCase().includes(q)) itemsToRender.push({ type: 'file', data: file, parentId: fId }); });
             });
+            
+            // 核心修改：在搜索结果模式下，计算并显示找到了多少个文件夹和文件
+            const folderCount = itemsToRender.filter(i => i.type === 'folder').length;
+            const fileCount = itemsToRender.filter(i => i.type === 'file').length;
+            breadcrumbCount.textContent = `(${folderCount} 个文件夹, ${fileCount} 个文件)`;
+            
         } else {
             if (store.currentFolderId === null) breadcrumbText.textContent = '根目录';
             else {
@@ -622,6 +662,10 @@
             }
             getChildrenFolders(store.currentFolderId).forEach(f => itemsToRender.push({ type: 'folder', data: f }));
             getFiles(store.currentFolderId).forEach(file => itemsToRender.push({ type: 'file', data: file, parentId: store.currentFolderId }));
+            
+            // 核心修改：在常规浏览模式下，递归计算并显示包含子目录在内的所有文件总数
+            const totalRecursiveFiles = getRecursiveFileCount(store.currentFolderId);
+            breadcrumbCount.textContent = `(共 ${totalRecursiveFiles} 个文件)`;
         }
 
         if (itemsToRender.length === 0) contentGrid.innerHTML = `<div class="empty-state">此文件夹为空</div>`;
@@ -645,7 +689,6 @@
             card.className = `item-card ${isSelected ? 'selected' : ''}`;
             card.draggable = true;
 
-            // 核心修改：为 icon 增加专属的 title 提示
             card.innerHTML = `
                 <div class="checkbox-wrapper">
                     <input type="checkbox" value="${itemIdKey}" ${isSelected ? 'checked' : ''}>
@@ -697,9 +740,7 @@
                 toggleCheckbox();
             };
 
-            // 核心修改 1：移除双击和定时器，卡片点击立刻、瞬间触发选中！
             card.onclick = (e) => {
-                // 如果点击的是复选框、按钮、超链接、或者我们的大图标，则不触发选中
                 if (e.target.tagName.toLowerCase() === 'input' || 
                     e.target.closest('a') || 
                     e.target.closest('button') || 
@@ -708,12 +749,11 @@
                 toggleCheckbox();
             };
 
-            // 核心修改 2：给大图标专门绑定“进入/打开”的点击事件
             const iconEl = card.querySelector('.item-icon');
             iconEl.onclick = (e) => {
-                e.stopPropagation(); // 阻止卡片的点击事件
+                e.stopPropagation(); 
                 if (isFolder) {
-                    if (!store.searchQuery) navigateToFolder(id);
+                    navigateToFolder(id); // 删除了限制条件
                 } else {
                     if (item.data.url) window.open(item.data.url, '_blank');
                 }
