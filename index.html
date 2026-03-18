@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini Voyager 数据管理器</title>
+    <style>
+        :root {
+            --bg-color: #f8f9fa;
+            --surface: #ffffff;
+            --border: #e0e0e0;
+            --primary: #1a73e8;
+            --primary-light: #e8f0fe;
+            --text-main: #202124;
+            --text-secondary: #5f6368;
+            --hover-bg: #f1f3f4;
+            --selected-bg: #e8f0fe;
+            --shadow: 0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: var(--bg-color); color: var(--text-main); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+        /* Header */
+        header { background: var(--surface); padding: 12px 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 2px rgba(0,0,0,0.05); z-index: 10; }
+        .header-left { display: flex; align-items: center; gap: 12px; }
+        .btn { padding: 8px 16px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; transition: background 0.2s; }
+        .btn:hover { background: #1557b0; }
+        .btn-outline { background: transparent; color: var(--text-main); border: 1px solid var(--border); }
+        .btn-outline:hover { background: var(--hover-bg); }
+        input[type="file"] { display: none; }
+        .search-box { padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; width: 300px; font-size: 14px; outline: none; }
+        .search-box:focus { border-color: var(--primary); }
+
+        /* Header Selection Badge */
+        .header-selection-badge { background: var(--surface); color: var(--text-main); padding: 6px 12px; border-radius: 6px; font-size: 13px; border: 1px solid var(--border); display: flex; align-items: center; gap: 12px; height: 34px; }
+        .badge-text { font-weight: 500; }
+        .badge-text span { color: var(--primary); font-weight: 600; }
+        .badge-divider { color: var(--border); margin: 0 4px; }
+        .btn-clear { padding: 4px 8px; font-size: 12px; background: var(--hover-bg); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; color: var(--text-secondary); transition: all 0.2s; }
+        .btn-clear:not(:disabled):hover { background: #e8eaed; color: var(--text-main); }
+        .btn-clear:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Main Layout */
+        .container { display: flex; flex: 1; overflow: hidden; }
+        
+        /* Sidebar (Folder Tree) */
+        .sidebar { width: 260px; background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; padding: 16px 12px; }
+        .tree-node { position: relative; }
+        .tree-children { margin-left: 11px; padding-left: 12px; border-left: 1px solid #cdd1d5; }
+        .tree-children > .tree-node::before { content: ''; position: absolute; top: 16px; left: -12px; width: 10px; height: 1px; background-color: #cdd1d5; }
+        .tree-item { padding: 6px 8px; margin: 2px 0; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text-main); transition: all 0.1s; user-select: none; }
+        .tree-item:hover { background: var(--hover-bg); }
+        .tree-item.active { background: var(--primary-light); color: var(--primary); font-weight: 500; }
+        .tree-icon { color: #fbbc04; flex-shrink: 0; }
+        .tree-item.drag-over { background: var(--primary-light); color: var(--primary); outline: 2px dashed var(--primary); outline-offset: -2px; }
+        
+        /* Main Content */
+        .main-content { flex: 1; padding: 24px; overflow-y: auto; background: var(--bg-color); }
+        .breadcrumb { font-size: 18px; font-weight: 500; margin-bottom: 20px; color: var(--text-main); display: flex; align-items: center; }
+
+        /* Grid/List View */
+        .grid-view { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+        .item-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; cursor: grab; display: flex; flex-direction: column; gap: 8px; position: relative; transition: all 0.2s; user-select: none; }
+        .item-card:hover { box-shadow: var(--shadow); border-color: transparent; }
+        .item-card.drag-over { border: 2px dashed var(--primary); background: var(--primary-light); }
+        .item-card.selected { background: var(--selected-bg); border-color: var(--primary); }
+        .item-header { display: flex; justify-content: space-between; align-items: flex-start; }
+        .item-icon { font-size: 24px; }
+        .item-icon.folder { color: #fbbc04; }
+        .item-icon.file { color: #4285f4; }
+        
+        /* Title and Jump Icon */
+        .item-title-wrapper { display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; }
+        .item-title { font-size: 14px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-all; }
+        .jump-icon { text-decoration: none; font-size: 14px; padding: 2px; border-radius: 4px; flex-shrink: 0; opacity: 0.7; transition: all 0.2s; }
+        .jump-icon:hover { opacity: 1; background-color: var(--hover-bg); transform: scale(1.1); }
+        
+        .item-meta { font-size: 12px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 4px; }
+        .item-path { font-size: 11px; color: #80868b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: #f1f3f4; padding: 2px 6px; border-radius: 4px; display: inline-block; width: fit-content; max-width: 100%; }
+        
+        .checkbox-wrapper { position: absolute; top: 12px; right: 12px; z-index: 2; }
+        input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
+
+        /* Context Menu & Modal */
+        #context-menu { display: none; position: fixed; background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow); border-radius: 6px; padding: 6px 0; min-width: 160px; z-index: 1000; }
+        .context-menu-item { padding: 8px 16px; font-size: 14px; cursor: pointer; color: var(--text-main); }
+        .context-menu-item:hover { background: var(--hover-bg); }
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1001; justify-content: center; align-items: center; }
+        .modal { background: var(--surface); padding: 24px; border-radius: 8px; width: 400px; box-shadow: var(--shadow); }
+        .modal h3 { margin-bottom: 16px; }
+        .modal select { width: 100%; padding: 8px; margin-bottom: 20px; border-radius: 4px; border: 1px solid var(--border); }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 12px; }
+        .empty-state { text-align: center; padding: 40px; color: var(--text-secondary); }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="header-left">
+        <h2 style="margin-right: 12px;">📁 资源管理器</h2>
+        <input type="file" id="fileInput" accept=".json">
+        <button class="btn" onclick="document.getElementById('fileInput').click()">导入 JSON</button>
+        <button class="btn btn-outline" id="exportBtn" style="display:none;" onclick="exportData()">导出 JSON</button>
+        
+        <div id="headerSelectionBadge" class="header-selection-badge" style="visibility: hidden;">
+            <div class="badge-text">
+                共 <span id="totalFileCount">0</span> 个文件 
+                <span class="badge-divider">|</span> 
+                已选中 <span id="fileCount">0</span> 个
+            </div>
+            <button class="btn-clear" id="clearSelectionBtn" onclick="clearSelection()" disabled>清空</button>
+        </div>
+    </div>
+    <div class="header-right">
+        <input type="text" id="searchInput" class="search-box" placeholder="搜索文件或文件夹...">
+    </div>
+</header>
+
+<div class="container">
+    <div class="sidebar" id="sidebar">
+        <div class="empty-state">请先导入数据</div>
+    </div>
+    <div class="main-content" id="mainArea">
+        <div class="breadcrumb">
+            <span id="breadcrumbText">根目录</span>
+        </div>
+        <div class="grid-view" id="contentGrid"></div>
+    </div>
+</div>
+
+<div id="context-menu">
+    <div class="context-menu-item" id="contextMoveBtn">移动到文件夹...</div>
+</div>
+
+<div class="modal-overlay" id="moveModal">
+    <div class="modal">
+        <h3>移动到...</h3>
+        <select id="folderSelect"></select>
+        <div class="modal-actions">
+            <button class="btn btn-outline" onclick="closeModal()">取消</button>
+            <button class="btn" onclick="confirmMove()">确定</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let store = {
+        rawData: null,
+        currentFolderId: null,
+        searchQuery: '',
+        selectedItems: new Set()
+    };
+
+    const fileInput = document.getElementById('fileInput');
+    const searchInput = document.getElementById('searchInput');
+    const sidebar = document.getElementById('sidebar');
+    const contentGrid = document.getElementById('contentGrid');
+    const breadcrumbText = document.getElementById('breadcrumbText');
+    const headerSelectionBadge = document.getElementById('headerSelectionBadge');
+    const totalFileCountSpan = document.getElementById('totalFileCount');
+    const fileCountSpan = document.getElementById('fileCount');
+    const clearSelectionBtn = document.getElementById('clearSelectionBtn');
+    const contextMenu = document.getElementById('context-menu');
+    const moveModal = document.getElementById('moveModal');
+    const folderSelect = document.getElementById('folderSelect');
+
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const json = JSON.parse(event.target.result);
+                if (json.format === 'gemini-voyager.folders.v1') {
+                    store.rawData = json;
+                    store.currentFolderId = null;
+                    store.selectedItems.clear();
+                    document.getElementById('exportBtn').style.display = 'block';
+                    headerSelectionBadge.style.visibility = 'visible';
+                    updateTotalFileCount(); // 更新总文件数
+                    updateSelectionBadge();
+                    renderAll();
+                } else { alert('不支持的 JSON 格式！'); }
+            } catch (err) { alert('解析失败：' + err.message); }
+        };
+        reader.readAsText(file);
+    });
+
+    function getFolders() { return store.rawData?.data?.folders || []; }
+    function getFolderContents() { return store.rawData?.data?.folderContents || {}; }
+    function getChildrenFolders(parentId) { return getFolders().filter(f => f.parentId === parentId).sort((a, b) => (a.sortIndex || 0) - (b.sortIndex || 0)); }
+    function getFiles(folderId) { return getFolderContents()[folderId] || []; }
+    function getFolderById(id) { return getFolders().find(f => f.id === id); }
+
+    function findSourceId(type, id) {
+        if (type === 'folder') return getFolderById(id)?.parentId;
+        for (const [fId, files] of Object.entries(getFolderContents())) {
+            if (files.some(f => f.conversationId === id)) return fId;
+        }
+        return null;
+    }
+
+    // 获取完整路径面包屑字符串
+    function getFolderPath(folderId) {
+        if (!folderId) return '根目录';
+        let path = [];
+        let currentId = folderId;
+        // 防止意外死循环，加个最大层级限制
+        let depth = 0;
+        while (currentId && depth < 20) {
+            const f = getFolderById(currentId);
+            if (f) {
+                path.unshift(f.name);
+                currentId = f.parentId;
+            } else {
+                break;
+            }
+            depth++;
+        }
+        return '根目录 / ' + path.join(' / ');
+    }
+
+    // 更新总文件数显示
+    function updateTotalFileCount() {
+        if (!store.rawData) return;
+        let total = 0;
+        const contents = getFolderContents();
+        for (const key in contents) {
+            total += contents[key].length;
+        }
+        totalFileCountSpan.textContent = total;
+    }
+
+    // --- 核心级联选择逻辑 ---
+    function cascadeSelectionDown(folderId, isSelected) {
+        getChildrenFolders(folderId).forEach(f => {
+            if (isSelected) store.selectedItems.add(`folder:${f.id}`);
+            else store.selectedItems.delete(`folder:${f.id}`);
+            cascadeSelectionDown(f.id, isSelected);
+        });
+        getFiles(folderId).forEach(file => {
+            if (isSelected) store.selectedItems.add(`file:${file.conversationId}`);
+            else store.selectedItems.delete(`file:${file.conversationId}`);
+        });
+    }
+
+    function evaluateFolderSelection() {
+        const checkFolder = (folderId) => {
+            const subfolders = getChildrenFolders(folderId);
+            const files = getFiles(folderId);
+            
+            if (subfolders.length === 0 && files.length === 0) {
+                return store.selectedItems.has(`folder:${folderId}`);
+            }
+
+            let allSelected = true;
+            for (const sub of subfolders) {
+                if (!checkFolder(sub.id)) allSelected = false; 
+            }
+            for (const file of files) {
+                if (!store.selectedItems.has(`file:${file.conversationId}`)) allSelected = false;
+            }
+            
+            const folderKey = `folder:${folderId}`;
+            if (allSelected && !store.selectedItems.has(folderKey)) {
+                store.selectedItems.add(folderKey);
+            } else if (!allSelected && store.selectedItems.has(folderKey)) {
+                store.selectedItems.delete(folderKey);
+            }
+            return allSelected;
+        };
+        getChildrenFolders(null).forEach(f => checkFolder(f.id));
+    }
+
+    // --- UI 状态更新 ---
+    function updateSelectionBadge() {
+        let fileCount = 0;
+        store.selectedItems.forEach(itemKey => {
+            if (itemKey.startsWith('file:')) fileCount++;
+        });
+        fileCountSpan.textContent = fileCount;
+        clearSelectionBtn.disabled = store.selectedItems.size === 0;
+    }
+
+    function clearSelection() {
+        store.selectedItems.clear();
+        updateSelectionBadge();
+        renderMainContent(); 
+    }
+
+    function getTopLevelSelectedItems() {
+        let topLevelItems = [];
+        store.selectedItems.forEach(itemKey => {
+            const [type, id] = itemKey.split(':');
+            let parentId = findSourceId(type, id);
+            let isAncestorSelected = false;
+            
+            while (parentId) {
+                if (store.selectedItems.has(`folder:${parentId}`)) {
+                    isAncestorSelected = true;
+                    break;
+                }
+                parentId = findSourceId('folder', parentId);
+            }
+            if (!isAncestorSelected) topLevelItems.push({ type, id, sourceId: findSourceId(type, id) });
+        });
+        return topLevelItems;
+    }
+
+    // --- 渲染逻辑 ---
+    function renderAll() {
+        if (!store.rawData) return;
+        renderSidebar();
+        renderMainContent();
+    }
+
+    function renderSidebar() {
+        sidebar.innerHTML = '';
+        const rootWrapper = document.createElement('div');
+        rootWrapper.className = 'tree-node';
+        
+        const rootItem = document.createElement('div');
+        rootItem.className = `tree-item ${store.currentFolderId === null ? 'active' : ''}`;
+        rootItem.innerHTML = `<span class="tree-icon">🏠</span> 根目录`;
+        rootItem.onclick = () => { store.currentFolderId = null; renderAll(); };
+        
+        rootItem.ondragover = handleDragOver;
+        rootItem.ondragleave = handleDragLeave;
+        rootItem.ondrop = (e) => handleDrop(e, null);
+        
+        rootWrapper.appendChild(rootItem);
+        sidebar.appendChild(rootWrapper);
+
+        const renderTreeNodes = (parentId, container) => {
+            const children = getChildrenFolders(parentId);
+            if (children.length === 0) return;
+            
+            const childrenContainer = document.createElement('div');
+            childrenContainer.className = 'tree-children';
+            container.appendChild(childrenContainer);
+
+            children.forEach(folder => {
+                const el = document.createElement('div');
+                el.className = 'tree-node';
+
+                const item = document.createElement('div');
+                item.className = `tree-item ${store.currentFolderId === folder.id ? 'active' : ''}`;
+                item.innerHTML = `<span class="tree-icon">📁</span> ${escapeHTML(folder.name)}`;
+                item.onclick = (e) => { e.stopPropagation(); store.currentFolderId = folder.id; renderAll(); };
+                
+                item.ondragover = handleDragOver;
+                item.ondragleave = handleDragLeave;
+                item.ondrop = (e) => handleDrop(e, folder.id);
+
+                el.appendChild(item);
+                childrenContainer.appendChild(el);
+                renderTreeNodes(folder.id, el);
+            });
+        };
+        renderTreeNodes(null, rootWrapper);
+    }
+
+    function renderMainContent() {
+        contentGrid.innerHTML = '';
+        let itemsToRender = [];
+
+        if (store.searchQuery) {
+            breadcrumbText.textContent = `搜索结果: "${store.searchQuery}"`;
+            const q = store.searchQuery.toLowerCase();
+            getFolders().forEach(f => { if (f.name.toLowerCase().includes(q)) itemsToRender.push({ type: 'folder', data: f }); });
+            Object.entries(getFolderContents()).forEach(([fId, files]) => {
+                files.forEach(file => { if (file.title.toLowerCase().includes(q)) itemsToRender.push({ type: 'file', data: file, parentId: fId }); });
+            });
+        } else {
+            if (store.currentFolderId === null) breadcrumbText.textContent = '根目录';
+            else {
+                const f = getFolderById(store.currentFolderId);
+                breadcrumbText.textContent = f ? `📁 ${f.name}` : '未知目录';
+            }
+            getChildrenFolders(store.currentFolderId).forEach(f => itemsToRender.push({ type: 'folder', data: f }));
+            getFiles(store.currentFolderId).forEach(file => itemsToRender.push({ type: 'file', data: file, parentId: store.currentFolderId }));
+        }
+
+        if (itemsToRender.length === 0) contentGrid.innerHTML = `<div class="empty-state">此文件夹为空</div>`;
+
+        itemsToRender.forEach(item => {
+            const isFolder = item.type === 'folder';
+            const id = isFolder ? item.data.id : item.data.conversationId;
+            const title = isFolder ? item.data.name : item.data.title;
+            const date = new Date(isFolder ? item.data.createdAt : item.data.addedAt).toLocaleDateString();
+            const itemIdKey = `${item.type}:${id}`;
+            const isSelected = store.selectedItems.has(itemIdKey);
+            
+            // 获取路径 (如果是搜索模式则展示)
+            const parentIdForPath = isFolder ? item.data.parentId : item.parentId;
+            const pathHtml = store.searchQuery ? `<div class="item-path" title="${escapeHTML(getFolderPath(parentIdForPath))}">${escapeHTML(getFolderPath(parentIdForPath))}</div>` : '';
+            
+            // 跳转图标逻辑
+            const jumpLinkHtml = (!isFolder && item.data.url) 
+                ? `<a href="${item.data.url}" target="_blank" class="jump-icon" title="在浏览器中打开网址" onclick="event.stopPropagation()">↗️</a>` 
+                : '';
+
+            const card = document.createElement('div');
+            card.className = `item-card ${isSelected ? 'selected' : ''}`;
+            card.draggable = true;
+
+            card.innerHTML = `
+                <div class="checkbox-wrapper">
+                    <input type="checkbox" value="${itemIdKey}" ${isSelected ? 'checked' : ''}>
+                </div>
+                <div class="item-header">
+                    <div class="item-icon ${item.type}">${isFolder ? '📁' : '📄'}</div>
+                </div>
+                <div class="item-title-wrapper">
+                    <div class="item-title" title="${escapeHTML(title)}">${escapeHTML(title)}</div>
+                    ${jumpLinkHtml}
+                </div>
+                <div class="item-meta">
+                    <div>${date}</div>
+                    ${pathHtml}
+                </div>
+            `;
+
+            if (isFolder) {
+                // 保留文件夹的双击进入功能 (不在搜索模式下)
+                card.ondblclick = () => { if(!store.searchQuery) { store.currentFolderId = id; renderAll(); } };
+                card.ondragover = handleDragOver;
+                card.ondragleave = handleDragLeave;
+                card.ondrop = (e) => handleDrop(e, id);
+            }
+
+            card.ondragstart = (e) => {
+                let dragPayload = [];
+                if (store.selectedItems.has(itemIdKey)) dragPayload = getTopLevelSelectedItems();
+                else dragPayload.push({ type: item.type, id: id, sourceId: isFolder ? item.data.parentId : item.parentId });
+                e.dataTransfer.setData('text/plain', JSON.stringify(dragPayload));
+            };
+
+            const checkbox = card.querySelector('input');
+            checkbox.onclick = (e) => {
+                e.stopPropagation();
+                if (checkbox.checked) store.selectedItems.add(itemIdKey);
+                else store.selectedItems.delete(itemIdKey);
+
+                if (isFolder) cascadeSelectionDown(id, checkbox.checked); 
+                evaluateFolderSelection(); 
+
+                updateSelectionBadge();
+                renderMainContent(); 
+            };
+            card.onclick = (e) => { if (e.target !== checkbox && !e.target.closest('a')) checkbox.click(); };
+
+            card.oncontextmenu = (e) => {
+                e.preventDefault();
+                if (!store.selectedItems.has(itemIdKey)) {
+                    store.selectedItems.clear();
+                    store.selectedItems.add(itemIdKey);
+                    if (isFolder) cascadeSelectionDown(id, true);
+                    evaluateFolderSelection();
+                    updateSelectionBadge();
+                    renderMainContent();
+                }
+                showContextMenu(e.clientX, e.clientY);
+            };
+
+            contentGrid.appendChild(card);
+        });
+        
+        updateSelectionBadge();
+    }
+
+    // --- 拖放与移动逻辑 ---
+    function handleDragOver(e) {
+        e.preventDefault();
+        e.currentTarget.classList.add('drag-over');
+    }
+    function handleDragLeave(e) {
+        if (!e.currentTarget.contains(e.relatedTarget)) e.currentTarget.classList.remove('drag-over');
+    }
+    function handleDrop(e, targetFolderId) {
+        e.preventDefault();
+        document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+        try {
+            const payload = JSON.parse(e.dataTransfer.getData('text/plain'));
+            if (Array.isArray(payload)) {
+                payload.forEach(data => moveItem(data.type, data.id, data.sourceId, targetFolderId));
+                store.selectedItems.clear();
+                updateTotalFileCount(); // 移动不会改变总数，但安全起见可调用
+                updateSelectionBadge();
+                renderAll();
+            }
+        } catch (err) { console.error("Drop failed:", err); }
+    }
+
+    function isDescendant(potentialDescendantId, ancestorId) {
+        let currentParentId = getFolderById(potentialDescendantId)?.parentId;
+        while (currentParentId) {
+            if (currentParentId === ancestorId) return true;
+            currentParentId = getFolderById(currentParentId)?.parentId;
+        }
+        return false;
+    }
+
+    function moveItem(type, id, sourceFolderId, targetFolderId) {
+        if (sourceFolderId === targetFolderId) return; 
+        
+        if (type === 'folder') {
+            if (id === targetFolderId) return;
+            if (targetFolderId && isDescendant(targetFolderId, id)) {
+                alert("非法操作：不能将文件夹移动到它的子文件夹中！");
+                return;
+            }
+            const folderIndex = store.rawData.data.folders.findIndex(f => f.id === id);
+            if (folderIndex > -1) {
+                store.rawData.data.folders[folderIndex].parentId = targetFolderId;
+                store.rawData.data.folders[folderIndex].updatedAt = Date.now();
+            }
+        } else if (type === 'file') {
+            if (!store.rawData.data.folderContents[targetFolderId]) store.rawData.data.folderContents[targetFolderId] = [];
+            const sourceArr = store.rawData.data.folderContents[sourceFolderId] || [];
+            const fileIndex = sourceArr.findIndex(f => f.conversationId === id);
+            if (fileIndex > -1) {
+                const [fileObj] = sourceArr.splice(fileIndex, 1);
+                store.rawData.data.folderContents[targetFolderId].push(fileObj);
+            }
+        }
+    }
+
+    function showContextMenu(x, y) {
+        contextMenu.style.display = 'block';
+        contextMenu.style.left = `${x}px`;
+        contextMenu.style.top = `${y}px`;
+    }
+    document.addEventListener('click', () => { contextMenu.style.display = 'none'; });
+
+    document.getElementById('contextMoveBtn').onclick = () => {
+        if (store.selectedItems.size === 0) return;
+        folderSelect.innerHTML = `<option value="null">🏠 根目录</option>`;
+        getFolders().forEach(f => folderSelect.innerHTML += `<option value="${f.id}">📁 ${escapeHTML(f.name)}</option>`);
+        moveModal.style.display = 'flex';
+    };
+    function closeModal() { moveModal.style.display = 'none'; }
+    function confirmMove() {
+        const targetId = folderSelect.value === 'null' ? null : folderSelect.value;
+        const itemsToMove = getTopLevelSelectedItems();
+        itemsToMove.forEach(item => moveItem(item.type, item.id, item.sourceId, targetId));
+        closeModal();
+        store.selectedItems.clear();
+        updateSelectionBadge();
+        renderAll();
+    }
+
+    searchInput.addEventListener('input', (e) => {
+        store.searchQuery = e.target.value.trim();
+        renderMainContent();
+    });
+
+    function exportData() {
+        if (!store.rawData) return;
+        store.rawData.exportedAt = new Date().toISOString();
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(store.rawData, null, 2));
+        const downloadAnchorNode = document.createElement('a');
+        downloadAnchorNode.setAttribute("href", dataStr);
+        downloadAnchorNode.setAttribute("download", "gemini-voyager-export.json");
+        document.body.appendChild(downloadAnchorNode); 
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
+    }
+
+    function escapeHTML(str) {
+        if (!str) return '';
+        return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
+    }
+</script>
+</body>
+</html>
