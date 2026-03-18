@@ -93,11 +93,13 @@
         .container { display: flex; flex: 1; overflow: hidden; }
         
         /* Sidebar (Folder Tree) */
-        .sidebar { width: 300px; background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; padding: 16px 12px; transition: background-color 0.3s; }
+        .sidebar { width: 300px; background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; padding: 16px 12px; transition: background-color 0.3s, border-color 0.3s; }
         .tree-node { position: relative; }
-        .tree-children { margin-left: 11px; padding-left: 12px; border-left: 1px solid var(--border); }
-        .tree-children > .tree-node::before { content: ''; position: absolute; top: 16px; left: -12px; width: 10px; height: 1px; background-color: var(--border); }
-        .tree-item { padding: 6px 8px; margin: 2px 0; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; color: var(--text-main); transition: all 0.1s; user-select: none; }
+        .tree-children { margin-left: 11px; padding-left: 12px; border-left: 1px solid var(--border); transition: border-color 0.3s;}
+        .tree-children > .tree-node::before { content: ''; position: absolute; top: 16px; left: -12px; width: 10px; height: 1px; background-color: var(--border); transition: border-color 0.3s;}
+        .tree-item {
+             padding: 6px 8px; margin: 2px 0; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; color: var(--text-main); transition: all 0.1s; user-select: none; 
+             transition: background-color 0.1s, color 0.3s; }
         .tree-item-content { display: flex; align-items: center; gap: 8px; flex: 1; overflow: hidden; }
         .tree-item-content .item-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .tree-item:hover { background: var(--hover-bg); }
