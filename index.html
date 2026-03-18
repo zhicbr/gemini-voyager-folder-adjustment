@@ -96,9 +96,9 @@
         .sidebar { width: 300px; background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; padding: 16px 12px; transition: background-color 0.3s, border-color 0.3s; }
         .tree-node { position: relative; }
         .tree-children { margin-left: 11px; padding-left: 12px; border-left: 1px solid var(--border); transition: border-color 0.3s;}
-        .tree-children > .tree-node::before { content: ''; position: absolute; top: 16px; left: -12px; width: 10px; height: 1px; background-color: var(--border); transition: border-color 0.3s;}
+        .tree-children > .tree-node::before { content: ''; position: absolute; top: 16px; left: -12px; width: 10px; height: 1px; background-color: var(--border); transition: background-color 0.3s;}
         .tree-item {
-             padding: 6px 8px; margin: 2px 0; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; color: var(--text-main); transition: all 0.1s; user-select: none; 
+             padding: 6px 8px; margin: 2px 0; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; color: var(--text-main); user-select: none; 
              transition: background-color 0.1s, color 0.3s; }
         .tree-item-content { display: flex; align-items: center; gap: 8px; flex: 1; overflow: hidden; }
         .tree-item-content .item-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -128,24 +128,39 @@
 
         /* Grid/List View */
         .grid-view { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
-        .item-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; cursor: grab; display: flex; flex-direction: column; gap: 8px; position: relative; transition: all 0.2s; user-select: none; }
+        .item-card { background-color: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; cursor: grab; display: flex; flex-direction: column; gap: 8px; position: relative; user-select: none; transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, box-shadow 0.2s ease, transform 0.2s ease; }
         .item-card:hover { box-shadow: var(--shadow); border-color: transparent; }
-        .item-card.drag-over { border: 2px dashed var(--primary); background: var(--primary-light); }
-        .item-card.selected { background: var(--selected-bg); border-color: var(--primary); }
-        .item-header { display: flex; justify-content: space-between; align-items: flex-start; }
-        .item-icon { font-size: 24px; }
+        .item-card.drag-over { border: 2px dashed var(--primary); background-color: var(--primary-light); }
+        .item-card.selected { background-color: var(--selected-bg); border-color: var(--primary); }
+        
+        .item-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
+        
+        /* 核心修改：放大图标，增加悬浮动效 */
+        .item-icon { 
+            font-size: 44px; /* 图标放大 */
+            cursor: pointer; 
+            display: inline-block; 
+            line-height: 1; 
+            user-select: none;
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), filter 0.2s ease; 
+        }
+        .item-icon:hover { 
+            transform: scale(1.15); /* 悬浮时进一步放大 */
+        }
         .item-icon.folder { color: #fbbc04; }
+        .item-icon.folder:hover { filter: drop-shadow(0px 4px 12px rgba(251, 188, 4, 0.6)); } /* 文件夹发黄光 */
         .item-icon.file { color: #4285f4; }
+        .item-icon.file:hover { filter: drop-shadow(0px 4px 12px rgba(66, 133, 244, 0.6)); } /* 文件发蓝光 */
         
         /* Title and Icons */
         .item-title-wrapper { display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; }
         .item-title { font-size: 14px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-all; flex: 1; color: var(--text-main); }
         .icon-group { display: flex; gap: 4px; flex-shrink: 0; }
-        .action-icon { text-decoration: none; font-size: 13px; padding: 2px 4px; border-radius: 4px; cursor: pointer; opacity: 0.6; transition: all 0.2s; background: transparent; border: none; color: var(--text-main); }
+        .action-icon { text-decoration: none; font-size: 13px; padding: 2px 4px; border-radius: 4px; cursor: pointer; opacity: 0.6; background-color: transparent; border: none; color: var(--text-main); transition: background-color 0.2s ease, opacity 0.2s ease, transform 0.2s ease, color 0.3s ease; }
         .action-icon:hover { opacity: 1; background-color: var(--border); transform: scale(1.05); }
         
         .item-meta { font-size: 12px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 4px; }
-        .item-path { font-size: 11px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: var(--hover-bg); padding: 2px 6px; border-radius: 4px; display: inline-block; width: fit-content; max-width: 100%; }
+        .item-path { font-size: 11px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background-color: var(--hover-bg); padding: 2px 6px; border-radius: 4px; display: inline-block; width: fit-content; max-width: 100%; transition: background-color 0.3s ease, color 0.3s ease; }
         
         .checkbox-wrapper { position: absolute; top: 12px; right: 12px; z-index: 2; }
         input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
@@ -161,7 +176,7 @@
         .modal select { width: 100%; padding: 8px; margin-bottom: 20px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-color); color: var(--text-main); outline: none;}
         .modal-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 16px; }
         
-        /* Meta Viewer Modal overrides - 已更新为使用 CSS 变量自适应亮暗主题 */
+        /* Meta Viewer Modal overrides */
         .meta-modal { width: 600px; max-height: 80vh; }
         .meta-content-wrapper { background: var(--meta-bg); border: 1px solid var(--border); border-radius: 6px; padding: 16px; overflow-y: auto; flex: 1; transition: background-color 0.3s; }
         .meta-content-wrapper pre { margin: 0; font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace; font-size: 13px; color: var(--meta-text); }
@@ -244,9 +259,8 @@
 </div>
 
 <script>
-    // --- 新增：主题切换逻辑 ---
+    // --- 主题切换逻辑 ---
     const themeToggleBtn = document.getElementById('themeToggleBtn');
-    // 初始化时从 localStorage 恢复用户的主题偏好
     const savedTheme = localStorage.getItem('gv-theme') || 'light';
     document.documentElement.setAttribute('data-theme', savedTheme);
     themeToggleBtn.textContent = savedTheme === 'dark' ? '☀️' : '🌙';
@@ -259,7 +273,6 @@
         themeToggleBtn.textContent = newTheme === 'dark' ? '☀️' : '🌙';
     };
 
-    // 原有的状态和核心逻辑完全保持不变
     let store = {
         rawData: null,
         currentFolderId: null,
@@ -313,7 +326,6 @@
         reader.readAsText(file);
     });
 
-    // --- 数据与核心操作逻辑 ---
     function getFolders() { return store.rawData?.data?.folders || []; }
     function getFolderContents() { return store.rawData?.data?.folderContents || {}; }
     function getChildrenFolders(parentId) { return getFolders().filter(f => f.parentId === parentId).sort((a, b) => (a.sortIndex || 0) - (b.sortIndex || 0)); }
@@ -395,7 +407,6 @@
         }
     }
 
-    // --- 导航与选择 ---
     function navigateToFolder(folderId) {
         if (store.currentFolderId === folderId) return;
         navHistory = navHistory.slice(0, navIndex + 1);
@@ -493,7 +504,6 @@
         return topLevelItems;
     }
 
-    // --- UI 渲染逻辑 ---
     function renderAll() {
         if (!store.rawData) return;
         updateNavButtons();
@@ -635,12 +645,13 @@
             card.className = `item-card ${isSelected ? 'selected' : ''}`;
             card.draggable = true;
 
+            // 核心修改：为 icon 增加专属的 title 提示
             card.innerHTML = `
                 <div class="checkbox-wrapper">
                     <input type="checkbox" value="${itemIdKey}" ${isSelected ? 'checked' : ''}>
                 </div>
                 <div class="item-header">
-                    <div class="item-icon ${item.type}">${isFolder ? '📁' : '📄'}</div>
+                    <div class="item-icon ${item.type}" title="${isFolder ? '点击进入文件夹' : '点击打开对话'}">${isFolder ? '📁' : '📄'}</div>
                 </div>
                 <div class="item-title-wrapper">
                     <div class="item-title" title="${escapeHTML(title)}">${escapeHTML(title)}</div>
@@ -686,17 +697,26 @@
                 toggleCheckbox();
             };
 
-            let clickTimer = null;
+            // 核心修改 1：移除双击和定时器，卡片点击立刻、瞬间触发选中！
             card.onclick = (e) => {
-                if (e.target.tagName.toLowerCase() === 'input' || e.target.closest('a') || e.target.closest('button')) return;
-                if (e.detail === 1) {
-                    clickTimer = setTimeout(() => { toggleCheckbox(); }, 250);
-                }
+                // 如果点击的是复选框、按钮、超链接、或者我们的大图标，则不触发选中
+                if (e.target.tagName.toLowerCase() === 'input' || 
+                    e.target.closest('a') || 
+                    e.target.closest('button') || 
+                    e.target.closest('.item-icon')) return;
+                
+                toggleCheckbox();
             };
 
-            card.ondblclick = (e) => {
-                clearTimeout(clickTimer);
-                if (isFolder && !store.searchQuery) navigateToFolder(id);
+            // 核心修改 2：给大图标专门绑定“进入/打开”的点击事件
+            const iconEl = card.querySelector('.item-icon');
+            iconEl.onclick = (e) => {
+                e.stopPropagation(); // 阻止卡片的点击事件
+                if (isFolder) {
+                    if (!store.searchQuery) navigateToFolder(id);
+                } else {
+                    if (item.data.url) window.open(item.data.url, '_blank');
+                }
             };
 
             card.oncontextmenu = (e) => {
@@ -738,7 +758,6 @@
     function handleDragOver(e) { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
     function handleDragLeave(e) { if (!e.currentTarget.contains(e.relatedTarget)) e.currentTarget.classList.remove('drag-over'); }
     
-    // 拖放处理函数
     function handleDrop(e, targetFolderId) {
         e.preventDefault();
         e.stopPropagation();
