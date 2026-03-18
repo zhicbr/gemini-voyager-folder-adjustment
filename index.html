@@ -11,6 +11,7 @@
             --border: #e0e0e0;
             --primary: #1a73e8;
             --primary-light: #e8f0fe;
+            --success: #137333;
             --text-main: #202124;
             --text-secondary: #5f6368;
             --hover-bg: #f1f3f4;
@@ -28,6 +29,8 @@
         .btn:hover { background: #1557b0; }
         .btn-outline { background: transparent; color: var(--text-main); border: 1px solid var(--border); }
         .btn-outline:hover { background: var(--hover-bg); }
+        .btn-success { background: var(--success); }
+        .btn-success:hover { background: #0d5023; }
         input[type="file"] { display: none; }
         .search-box { padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; width: 300px; font-size: 14px; outline: none; }
         .search-box:focus { border-color: var(--primary); }
@@ -45,15 +48,22 @@
         .container { display: flex; flex: 1; overflow: hidden; }
         
         /* Sidebar (Folder Tree) */
-        .sidebar { width: 260px; background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; padding: 16px 12px; }
+        .sidebar { width: 300px; background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; padding: 16px 12px; }
         .tree-node { position: relative; }
         .tree-children { margin-left: 11px; padding-left: 12px; border-left: 1px solid #cdd1d5; }
         .tree-children > .tree-node::before { content: ''; position: absolute; top: 16px; left: -12px; width: 10px; height: 1px; background-color: #cdd1d5; }
-        .tree-item { padding: 6px 8px; margin: 2px 0; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text-main); transition: all 0.1s; user-select: none; }
+        .tree-item { padding: 6px 8px; margin: 2px 0; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; color: var(--text-main); transition: all 0.1s; user-select: none; }
+        .tree-item-content { display: flex; align-items: center; gap: 8px; flex: 1; overflow: hidden; }
+        .tree-item-content .item-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .tree-item:hover { background: var(--hover-bg); }
         .tree-item.active { background: var(--primary-light); color: var(--primary); font-weight: 500; }
         .tree-icon { color: #fbbc04; flex-shrink: 0; }
-        .tree-item.drag-over { background: var(--primary-light); color: var(--primary); outline: 2px dashed var(--primary); outline-offset: -2px; }
+        
+        /* Sidebar Action Buttons */
+        .tree-item-actions { display: none; gap: 2px; flex-shrink: 0; }
+        .tree-item:hover .tree-item-actions { display: flex; }
+        .tree-action-btn { background: transparent; border: none; cursor: pointer; border-radius: 4px; padding: 2px 4px; font-size: 12px; color: var(--text-secondary); font-weight: bold; }
+        .tree-action-btn:hover { background: #d2e3fc; color: var(--primary); }
         
         /* Main Content */
         .main-content { flex: 1; padding: 24px; overflow-y: auto; background: var(--bg-color); }
@@ -121,6 +131,7 @@
         <input type="file" id="fileInput" accept=".json">
         <button class="btn" onclick="document.getElementById('fileInput').click()">导入 JSON</button>
         <button class="btn btn-outline" id="exportBtn" style="display:none;" onclick="exportData()">导出 JSON</button>
+        <button class="btn btn-success" id="createRootBtn" style="display:none;" onclick="promptCreateFolder(null)">➕ 新建根目录</button>
         
         <div id="headerSelectionBadge" class="header-selection-badge" style="visibility: hidden;">
             <div class="badge-text">
@@ -189,7 +200,6 @@
         selectedItems: new Set()
     };
 
-    // 历史导航栈
     let navHistory = [null];
     let navIndex = 0;
 
@@ -221,11 +231,11 @@
                     store.currentFolderId = null;
                     store.selectedItems.clear();
                     
-                    // 重置导航历史
                     navHistory = [null];
                     navIndex = 0;
                     
                     document.getElementById('exportBtn').style.display = 'block';
+                    document.getElementById('createRootBtn').style.display = 'block'; // 显示新建目录按钮
                     headerSelectionBadge.style.visibility = 'visible';
                     updateTotalFileCount(); 
                     updateSelectionBadge();
@@ -236,7 +246,7 @@
         reader.readAsText(file);
     });
 
-    // --- 辅助数据获取 ---
+    // --- 数据与核心操作逻辑 ---
     function getFolders() { return store.rawData?.data?.folders || []; }
     function getFolderContents() { return store.rawData?.data?.folderContents || {}; }
     function getChildrenFolders(parentId) { return getFolders().filter(f => f.parentId === parentId).sort((a, b) => (a.sortIndex || 0) - (b.sortIndex || 0)); }
@@ -267,10 +277,69 @@
         return '根目录 / ' + path.join(' / ');
     }
 
-    // --- 导航历史控制 ---
+    // 新增：创建新文件夹的逻辑
+    function promptCreateFolder(parentId) {
+        const title = parentId ? "请输入新建子文件夹的名称：" : "请输入新建根文件夹的名称：";
+        const name = prompt(title);
+        if (!name || !name.trim()) return;
+
+        // 计算同层级最大的 sortIndex
+        const siblings = getChildrenFolders(parentId);
+        const maxSortIndex = siblings.reduce((max, f) => Math.max(max, f.sortIndex || 0), -1);
+
+        const newFolder = {
+            id: 'folder_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+            name: name.trim(),
+            parentId: parentId,
+            isExpanded: true,
+            pinned: false,
+            color: "default",
+            sortIndex: maxSortIndex + 1,
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+        };
+
+        store.rawData.data.folders.push(newFolder);
+        store.rawData.data.folderContents[newFolder.id] = [];
+        
+        // 创建后，如果是在当前目录下创建，就直接渲染
+        renderAll();
+    }
+
+    // 新增：同层级修改排序（交换数组位置并重算 Index）
+    function reorderFolder(folderId, direction) {
+        const folder = getFolderById(folderId);
+        if (!folder) return;
+        
+        let siblings = getChildrenFolders(folder.parentId);
+        const index = siblings.findIndex(f => f.id === folderId);
+        
+        if (direction === 'up' && index > 0) {
+            // 与前一个元素交换
+            [siblings[index - 1], siblings[index]] = [siblings[index], siblings[index - 1]];
+        } else if (direction === 'down' && index < siblings.length - 1) {
+            // 与后一个元素交换
+            [siblings[index], siblings[index + 1]] = [siblings[index + 1], siblings[index]];
+        } else {
+            return; // 已经到顶或到底，无法移动
+        }
+        
+        // 按照新数组的位置重新赋予 sortIndex
+        siblings.forEach((f, i) => {
+            f.sortIndex = i;
+            f.updatedAt = Date.now();
+        });
+        
+        renderSidebar();
+        // 如果我们当前正在查看被修改排序的那个父目录，也刷新一下右侧
+        if (store.currentFolderId === folder.parentId) {
+            renderMainContent();
+        }
+    }
+
+    // --- 导航与选择 ---
     function navigateToFolder(folderId) {
         if (store.currentFolderId === folderId) return;
-        // 截断未来历史，推入新记录
         navHistory = navHistory.slice(0, navIndex + 1);
         navHistory.push(folderId);
         navIndex++;
@@ -299,7 +368,6 @@
         btnForward.disabled = navIndex === navHistory.length - 1;
     }
 
-    // --- 数据显示控制 ---
     function updateTotalFileCount() {
         if (!store.rawData) return;
         let total = 0;
@@ -308,7 +376,6 @@
         totalFileCountSpan.textContent = total;
     }
 
-    // --- 级联选择逻辑 ---
     function cascadeSelectionDown(folderId, isSelected) {
         getChildrenFolders(folderId).forEach(f => {
             if (isSelected) store.selectedItems.add(`folder:${f.id}`);
@@ -368,7 +435,7 @@
         return topLevelItems;
     }
 
-    // --- 渲染逻辑 ---
+    // --- UI 渲染逻辑 ---
     function renderAll() {
         if (!store.rawData) return;
         updateNavButtons();
@@ -383,16 +450,29 @@
         
         const rootItem = document.createElement('div');
         rootItem.className = `tree-item ${store.currentFolderId === null ? 'active' : ''}`;
-        rootItem.innerHTML = `<span class="tree-icon">🏠</span> 根目录`;
-        rootItem.onclick = () => navigateToFolder(null); // 使用导航栈管理
         
-        rootItem.ondragover = handleDragOver;
-        rootItem.ondragleave = handleDragLeave;
-        rootItem.ondrop = (e) => handleDrop(e, null);
+        // 根目录特殊结构：只保留创建子文件夹
+        const rootContent = document.createElement('div');
+        rootContent.className = 'tree-item-content';
+        rootContent.innerHTML = `<span class="tree-icon">🏠</span> 根目录`;
+        
+        const rootActions = document.createElement('div');
+        rootActions.className = 'tree-item-actions';
+        const rootAddBtn = document.createElement('button');
+        rootAddBtn.className = 'tree-action-btn';
+        rootAddBtn.title = '新建文件夹';
+        rootAddBtn.innerHTML = '➕';
+        rootAddBtn.onclick = (e) => { e.stopPropagation(); promptCreateFolder(null); };
+        rootActions.appendChild(rootAddBtn);
+        
+        rootItem.appendChild(rootContent);
+        rootItem.appendChild(rootActions);
+        rootItem.onclick = () => navigateToFolder(null);
         
         rootWrapper.appendChild(rootItem);
         sidebar.appendChild(rootWrapper);
 
+        // 递归渲染树节点
         const renderTreeNodes = (parentId, container) => {
             const children = getChildrenFolders(parentId);
             if (children.length === 0) return;
@@ -407,13 +487,43 @@
 
                 const item = document.createElement('div');
                 item.className = `tree-item ${store.currentFolderId === folder.id ? 'active' : ''}`;
-                item.innerHTML = `<span class="tree-icon">📁</span> ${escapeHTML(folder.name)}`;
+                
+                // 容器分割：图标/文本 和 悬浮按钮
+                const content = document.createElement('div');
+                content.className = 'tree-item-content';
+                content.innerHTML = `<span class="tree-icon">📁</span> <span class="item-title" title="${escapeHTML(folder.name)}">${escapeHTML(folder.name)}</span>`;
+                
+                const actions = document.createElement('div');
+                actions.className = 'tree-item-actions';
+                
+                // 新增：专属左侧的【上移、下移、新建】按钮组
+                const btnUp = document.createElement('button');
+                btnUp.className = 'tree-action-btn';
+                btnUp.title = '上移';
+                btnUp.innerHTML = '↑';
+                btnUp.onclick = (e) => { e.stopPropagation(); reorderFolder(folder.id, 'up'); };
+                
+                const btnDown = document.createElement('button');
+                btnDown.className = 'tree-action-btn';
+                btnDown.title = '下移';
+                btnDown.innerHTML = '↓';
+                btnDown.onclick = (e) => { e.stopPropagation(); reorderFolder(folder.id, 'down'); };
+
+                const btnAdd = document.createElement('button');
+                btnAdd.className = 'tree-action-btn';
+                btnAdd.title = '新建子文件夹';
+                btnAdd.innerHTML = '➕';
+                btnAdd.onclick = (e) => { e.stopPropagation(); promptCreateFolder(folder.id); };
+                
+                actions.appendChild(btnUp);
+                actions.appendChild(btnDown);
+                actions.appendChild(btnAdd);
+
+                item.appendChild(content);
+                item.appendChild(actions);
+
                 item.onclick = (e) => { e.stopPropagation(); navigateToFolder(folder.id); };
                 
-                item.ondragover = handleDragOver;
-                item.ondragleave = handleDragLeave;
-                item.ondrop = (e) => handleDrop(e, folder.id);
-
                 el.appendChild(item);
                 childrenContainer.appendChild(el);
                 renderTreeNodes(folder.id, el);
@@ -456,7 +566,6 @@
             const parentIdForPath = isFolder ? item.data.parentId : item.parentId;
             const pathHtml = store.searchQuery ? `<div class="item-path" title="${escapeHTML(getFolderPath(parentIdForPath))}">${escapeHTML(getFolderPath(parentIdForPath))}</div>` : '';
             
-            // 组装操作图标：跳转 和 元数据
             const metaJsonString = escapeHTML(JSON.stringify(item.data));
             const jumpLinkHtml = (!isFolder && item.data.url) ? `<a href="${item.data.url}" target="_blank" class="action-icon" title="在浏览器中打开">↗️</a>` : '';
             const metaBtnHtml = `<button class="action-icon" title="查看JSON元数据" onclick='openMetaModal(event, ${JSON.stringify(item.data).replace(/'/g, "&apos;")})'>{}</button>`;
@@ -485,6 +594,7 @@
                 </div>
             `;
 
+            // 只有在右侧网格的文件夹，才允许作为接收拖放的容器！
             if (isFolder) {
                 card.ondragover = handleDragOver;
                 card.ondragleave = handleDragLeave;
@@ -499,8 +609,6 @@
             };
 
             const checkbox = card.querySelector('input');
-            
-            // 抽取复选框切换的逻辑
             const toggleCheckbox = () => {
                 checkbox.checked = !checkbox.checked;
                 if (checkbox.checked) store.selectedItems.add(itemIdKey);
@@ -514,32 +622,21 @@
 
             checkbox.onclick = (e) => {
                 e.stopPropagation();
-                // Checkbox 自身的点击事件会先更改其状态，所以我们要手动将其取反回去再调用统一逻辑
                 checkbox.checked = !checkbox.checked; 
                 toggleCheckbox();
             };
 
-            // 防抖控制变量，解决双击导致复选框闪烁的 UI 痛点
             let clickTimer = null;
-
             card.onclick = (e) => {
-                // 如果点在了复选框、链接、操作按钮上，不要拦截
                 if (e.target.tagName.toLowerCase() === 'input' || e.target.closest('a') || e.target.closest('button')) return;
-                
                 if (e.detail === 1) {
-                    // 等待 250ms，如果没发生双击，则执行选中操作
-                    clickTimer = setTimeout(() => {
-                        toggleCheckbox();
-                    }, 250);
+                    clickTimer = setTimeout(() => { toggleCheckbox(); }, 250);
                 }
             };
 
             card.ondblclick = (e) => {
-                // 如果发生双击，立即取消 250ms 的定时器（阻止复选框被勾选），然后直接进入
                 clearTimeout(clickTimer);
-                if (isFolder && !store.searchQuery) {
-                    navigateToFolder(id);
-                }
+                if (isFolder && !store.searchQuery) navigateToFolder(id);
             };
 
             card.oncontextmenu = (e) => {
@@ -561,11 +658,9 @@
         updateSelectionBadge();
     }
 
-    // --- JSON 元数据模态框 ---
+    // --- 弹窗与拖拽逻辑 ---
     function openMetaModal(event, dataObj) {
-        event.stopPropagation(); // 阻止触发卡片的选中事件
-        
-        // 简易 JSON 高亮处理
+        event.stopPropagation();
         let jsonStr = JSON.stringify(dataObj, null, 2);
         jsonStr = jsonStr.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         const highlighted = jsonStr.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
@@ -576,14 +671,14 @@
             } else if (/true|false/.test(match)) { cls = 'meta-boolean'; }
             return '<span class="' + cls + '">' + match + '</span>';
         });
-        
         document.getElementById('metaContent').innerHTML = highlighted;
         document.getElementById('metaModal').style.display = 'flex';
     }
 
-    // --- 拖放与移动逻辑 ---
     function handleDragOver(e) { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
     function handleDragLeave(e) { if (!e.currentTarget.contains(e.relatedTarget)) e.currentTarget.classList.remove('drag-over'); }
+    
+    // 该方法现在仅由右侧主界面的文件夹触发
     function handleDrop(e, targetFolderId) {
         e.preventDefault();
         document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
