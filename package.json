@@ -1,0 +1,12 @@
+{
+  "name": "gemini-voyager-data-manager",
+  "version": "1.0.0",
+  "description": "Gemini Voyager 数据管理器 - 带对话内容查看功能",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0"
+  }
+}

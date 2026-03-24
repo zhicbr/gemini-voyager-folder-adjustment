@@ -188,6 +188,56 @@
         .meta-boolean { color: var(--meta-boolean); }
         
         .empty-state { text-align: center; padding: 40px; color: var(--text-secondary); }
+
+        /* Chat Import Status Indicator */
+        .chat-import-btn { position: relative; }
+        .chat-import-btn.imported { opacity: 1 !important; }
+        .chat-import-btn.imported::after { content: ''; position: absolute; top: -1px; right: -1px; width: 7px; height: 7px; background: var(--success); border-radius: 50%; border: 1px solid var(--surface); }
+        .chat-import-btn.not-imported { opacity: 0.4; }
+
+        /* Chat Select Modal */
+        .chat-select-modal { width: 520px; max-height: 80vh; }
+        .chat-select-list { max-height: 400px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; }
+        .chat-select-item { padding: 10px 14px; cursor: pointer; display: flex; align-items: center; gap: 10px; font-size: 14px; border-bottom: 1px solid var(--border); color: var(--text-main); transition: background 0.15s; }
+        .chat-select-item:last-child { border-bottom: none; }
+        .chat-select-item:hover { background: var(--hover-bg); }
+        .chat-select-item .chat-type-badge { font-size: 11px; padding: 1px 6px; border-radius: 3px; background: var(--primary-light); color: var(--primary); flex-shrink: 0; }
+        .chat-select-search { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; margin-bottom: 12px; outline: none; background: var(--surface); color: var(--text-main); transition: border-color 0.2s; }
+        .chat-select-search:focus { border-color: var(--primary); }
+
+        /* Chat Viewer Modal */
+        .chat-viewer-modal { width: 750px; max-width: 95vw; max-height: 90vh; display: flex; flex-direction: column; }
+        .chat-viewer-header { margin-bottom: 12px; }
+        .chat-viewer-header h3 { margin-bottom: 4px; font-size: 18px; }
+        .chat-viewer-meta { color: var(--text-secondary); font-size: 12px; display: flex; gap: 12px; align-items: center; }
+        .chat-viewer-body { flex: 1; overflow-y: auto; padding: 16px; background: var(--bg-color); border: 1px solid var(--border); border-radius: 8px; display: flex; flex-direction: column; gap: 4px; transition: background-color 0.3s, border-color 0.3s; }
+        .chat-turn-divider { text-align: center; color: var(--text-secondary); font-size: 12px; padding: 12px 0 4px; font-weight: 500; }
+        .chat-bubble-row { display: flex; gap: 10px; margin: 4px 0; }
+        .chat-bubble-row.user { flex-direction: row-reverse; }
+        .chat-bubble-avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; line-height: 1; }
+        .chat-bubble-row.user .chat-bubble-avatar { background: var(--primary-light); }
+        .chat-bubble-row.assistant .chat-bubble-avatar { background: var(--hover-bg); }
+        .chat-bubble { max-width: 85%; padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.65; word-break: break-word; white-space: pre-wrap; }
+        .chat-bubble-row.user .chat-bubble { background: var(--primary); color: #fff; border-top-right-radius: 4px; }
+        .chat-bubble-row.assistant .chat-bubble { background: var(--surface); color: var(--text-main); border: 1px solid var(--border); border-top-left-radius: 4px; }
+        .chat-bubble h1, .chat-bubble h2, .chat-bubble h3, .chat-bubble h4 { margin: 10px 0 6px; }
+        .chat-bubble h1 { font-size: 18px; } .chat-bubble h2 { font-size: 16px; } .chat-bubble h3 { font-size: 15px; }
+        .chat-bubble p { margin: 4px 0; }
+        .chat-bubble ul, .chat-bubble ol { padding-left: 20px; margin: 4px 0; }
+        .chat-bubble code { background: rgba(0,0,0,0.08); padding: 1px 4px; border-radius: 3px; font-family: Consolas, monospace; font-size: 13px; }
+        .chat-bubble pre { background: rgba(0,0,0,0.06); padding: 10px; border-radius: 6px; overflow-x: auto; margin: 6px 0; }
+        .chat-bubble pre code { background: transparent; padding: 0; }
+        .chat-bubble-row.user .chat-bubble code { background: rgba(255,255,255,0.18); }
+        .chat-bubble-row.user .chat-bubble pre { background: rgba(255,255,255,0.12); }
+        .chat-bubble img { max-width: 100%; border-radius: 6px; margin: 6px 0; cursor: pointer; }
+        .chat-bubble table { border-collapse: collapse; width: 100%; margin: 6px 0; font-size: 13px; }
+        .chat-bubble th, .chat-bubble td { border: 1px solid var(--border); padding: 5px 8px; text-align: left; }
+        .chat-bubble th { background: var(--hover-bg); font-weight: 600; }
+        .chat-bubble blockquote { border-left: 3px solid var(--primary); padding-left: 10px; margin: 6px 0; color: var(--text-secondary); }
+        .chat-bubble strong { font-weight: 600; }
+        .chat-bubble hr { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+        .chat-viewer-footer { text-align: center; color: var(--text-secondary); font-size: 12px; padding: 10px 0 0; font-style: italic; }
+        .chat-viewer-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; }
     </style>
 </head>
 <body>
@@ -261,6 +311,39 @@
     </div>
 </div>
 
+<!-- Chat History Select Modal -->
+<div class="modal-overlay" id="chatSelectModal">
+    <div class="modal chat-select-modal">
+        <h3>📂 选择对话记录</h3>
+        <p style="color:var(--text-secondary);font-size:13px;margin-bottom:12px;">未找到同名匹配，请手动选择 <code>chat_history</code> 中的对话记录关联到此卡片。选择后将重命名为对话标题。</p>
+        <input type="text" class="chat-select-search" id="chatSelectSearch" placeholder="搜索对话记录...">
+        <div class="chat-select-list" id="chatSelectList"></div>
+        <div class="modal-actions">
+            <button class="btn btn-outline" onclick="closeModal('chatSelectModal')">取消</button>
+        </div>
+    </div>
+</div>
+
+<!-- Chat Viewer Modal -->
+<div class="modal-overlay" id="chatViewerModal">
+    <div class="modal chat-viewer-modal">
+        <div class="chat-viewer-header">
+            <h3 id="chatViewerTitle">对话记录</h3>
+            <div class="chat-viewer-meta">
+                <span id="chatViewerDate"></span>
+                <span id="chatViewerTurns"></span>
+                <span id="chatViewerSource"></span>
+            </div>
+        </div>
+        <div class="chat-viewer-body" id="chatViewerBody"></div>
+        <div class="chat-viewer-footer">📌 此为历史对话记录，仅供查阅，无法继续对话</div>
+        <div class="chat-viewer-actions">
+            <button class="btn btn-outline" style="font-size:12px;padding:4px 10px;" onclick="removeChatAssociation()">🗑️ 解除关联</button>
+            <button class="btn" onclick="closeModal('chatViewerModal')">关闭</button>
+        </div>
+    </div>
+</div>
+
 <script>
     // --- 主题切换逻辑 ---
     const themeToggleBtn = document.getElementById('themeToggleBtn');
@@ -280,8 +363,25 @@
         rawData: null,
         currentFolderId: null,
         searchQuery: '',
-        selectedItems: new Set()
+        selectedItems: new Set(),
+        chatAssociations: {} // 新增对话内容关联数据
     };
+
+    // 初始化时加载已有或本地缓存的关联数据
+    function loadChatAssociations() {
+        fetch('/api/associations')
+            .then(res => res.json())
+            .then(data => {
+                if(data.success) {
+                    store.chatAssociations = data.data.associations || {};
+                    renderMainContent(); // 重新渲染以更新图标状态
+                }
+            })
+            .catch(err => console.error("加载关联数据失败", err));
+    }
+    
+    // 页面加载时自动加载
+    window.addEventListener('DOMContentLoaded', loadChatAssociations);
 
     let navHistory = [null];
     let navIndex = 0;
@@ -684,6 +784,15 @@
             const metaJsonString = escapeHTML(JSON.stringify(item.data));
             const jumpLinkHtml = (!isFolder && item.data.url) ? `<a href="${item.data.url}" target="_blank" class="action-icon" title="在浏览器中打开">↗️</a>` : '';
             const metaBtnHtml = `<button class="action-icon" title="查看JSON元数据" onclick='openMetaModal(event, ${JSON.stringify(item.data).replace(/'/g, "&apos;")})'>{}</button>`;
+            
+            let chatBtnHtml = '';
+            if (!isFolder) {
+                const assoc = store.chatAssociations[id];
+                const isImported = !!assoc;
+                const statusClass = isImported ? 'imported' : 'not-imported';
+                const statusTitle = isImported ? '查看对话记录' : '导入对话记录';
+                chatBtnHtml = `<button class="action-icon chat-import-btn ${statusClass}" title="${statusTitle}" onclick="handleChatClick(event, '${id}', '${escapeHTML(title)}')">💬</button>`;
+            }
 
             const card = document.createElement('div');
             card.className = `item-card ${isSelected ? 'selected' : ''}`;
@@ -699,6 +808,7 @@
                 <div class="item-title-wrapper">
                     <div class="item-title" title="${escapeHTML(title)}">${escapeHTML(title)}</div>
                     <div class="icon-group">
+                        ${chatBtnHtml}
                         ${metaBtnHtml}
                         ${jumpLinkHtml}
                     </div>
@@ -895,6 +1005,253 @@
         if (!str) return '';
         return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
     }
+
+    // =====================================
+    // 新增：对话关联与查看系统
+    // =====================================
+    let currentViewingChatId = null;
+
+    async function handleChatClick(event, id, title) {
+        event.stopPropagation();
+        const assoc = store.chatAssociations[id];
+        if (assoc) {
+            // 已导入，查看
+            openChatViewer(id, title, assoc);
+        } else {
+            // 未导入，开始自动/手动导入流程
+            try {
+                const res = await fetch(`/api/chat-history/search?title=${encodeURIComponent(title)}`);
+                const data = await res.json();
+                if (data.success && data.match) {
+                    // 自动匹配成功
+                    await confirmAndAssociateChat(id, data.match.name, data.match.type, title, title);
+                } else {
+                    // 无法自动匹配，打开手动选择模态框
+                    openChatSelectModal(id, title, data.all || []);
+                }
+            } catch (err) {
+                alert("请求后端搜索失败: " + err.message);
+            }
+        }
+    }
+
+    async function confirmAndAssociateChat(id, entryName, type, uiTitle, newName) {
+        try {
+            // 如果名字不同，先触发重命名
+            if (entryName !== newName) {
+                const res1 = await fetch('/api/chat-history/rename', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ oldName: entryName, newName: newName, type })
+                });
+                const data1 = await res1.json();
+                if (!data1.success) throw new Error(data1.error || "重命名失败");
+                entryName = newName; // 重命名成功后使用新名
+            }
+
+            // 保存关联关系
+            const res2 = await fetch('/api/associations', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ conversationId: id, folderName: entryName, type })
+            });
+            const data2 = await res2.json();
+            if (data2.success) {
+                store.chatAssociations[id] = { folderName: entryName, type, importedAt: Date.now() };
+                renderMainContent(); // 刷新 UI 图标状态
+                closeModal('chatSelectModal');
+            } else {
+                throw new Error("保存关联失败");
+            }
+        } catch (err) {
+            alert("关联失败: " + err.message);
+        }
+    }
+
+    let chatSelectItemsData = [];
+    let currentBindingChatId = null;
+    let currentBindingChatTitle = '';
+
+    function openChatSelectModal(id, title, items) {
+        currentBindingChatId = id;
+        currentBindingChatTitle = title;
+        chatSelectItemsData = items;
+        renderChatSelectList(items);
+        document.getElementById('chatSelectSearch').value = '';
+        document.getElementById('chatSelectModal').style.display = 'flex';
+    }
+
+    document.getElementById('chatSelectSearch').addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase();
+        const filtered = chatSelectItemsData.filter(i => i.name.toLowerCase().includes(query));
+        renderChatSelectList(filtered);
+    });
+
+    function renderChatSelectList(items) {
+        const list = document.getElementById('chatSelectList');
+        list.innerHTML = '';
+        if (items.length === 0) {
+            list.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-secondary);">未找到匹配的对话记录</div>';
+            return;
+        }
+        items.forEach(item => {
+            const el = document.createElement('div');
+            el.className = 'chat-select-item';
+            const icon = item.type === 'folder' ? '📁' : '📄';
+            const badge = item.type === 'folder' ? '文件夹' : '文件';
+            el.innerHTML = `
+                <div style="font-size: 18px;">${icon}</div>
+                <div style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHTML(item.name)}">${escapeHTML(item.name)}</div>
+                <div class="chat-type-badge">${badge}</div>
+            `;
+            el.onclick = () => {
+                if (confirm(`是否确认将该记录重命名为：\n"${currentBindingChatTitle}"\n并关联？`)) {
+                    confirmAndAssociateChat(currentBindingChatId, item.name, item.type, currentBindingChatTitle, currentBindingChatTitle);
+                }
+            };
+            list.appendChild(el);
+        });
+    }
+
+    // 解析并显示聊天记录
+    async function openChatViewer(id, title, assoc) {
+        currentViewingChatId = id;
+        document.getElementById('chatViewerTitle').textContent = title;
+        document.getElementById('chatViewerDate').textContent = new Date(assoc.importedAt).toLocaleString();
+        document.getElementById('chatViewerTurns').textContent = '';
+        document.getElementById('chatViewerSource').textContent = '';
+        document.getElementById('chatViewerBody').innerHTML = '<div style="text-align:center; padding: 40px;">加载中...</div>';
+        document.getElementById('chatViewerModal').style.display = 'flex';
+
+        try {
+            const res = await fetch(`/api/chat-history/read?name=${encodeURIComponent(assoc.folderName)}&type=${assoc.type}`);
+            const data = await res.json();
+            if (data.success) {
+                parseAndRenderMarkdown(data.content, data.basePath);
+            } else {
+                document.getElementById('chatViewerBody').innerHTML = `<div style="text-align:center; padding: 40px; color: red;">加载失败: ${escapeHTML(data.error)}</div>`;
+            }
+        } catch (err) {
+            document.getElementById('chatViewerBody').innerHTML = `<div style="text-align:center; padding: 40px; color: red;">网络错误: ${err.message}</div>`;
+        }
+    }
+
+    async function removeChatAssociation() {
+        if (!currentViewingChatId) return;
+        if (confirm("确定解除此对话的关联吗？（不会删除本地文件）")) {
+            try {
+                const res = await fetch(`/api/associations/${currentViewingChatId}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) {
+                    delete store.chatAssociations[currentViewingChatId];
+                    renderMainContent();
+                    closeModal('chatViewerModal');
+                }
+            } catch (err) {
+                alert("解除关联失败: " + err.message);
+            }
+        }
+    }
+
+    // 简单的 Markdown 解析器转气泡 UI 渲染
+    function parseAndRenderMarkdown(markdownText, basePath) {
+        const bodyEl = document.getElementById('chatViewerBody');
+        bodyEl.innerHTML = '';
+        
+        let metaTurns = '';
+        let metaSourceHtml = '';
+
+        // 预处理匹配 metadata (Date, Turns, Source)
+        const topMatch = markdownText.match(/\*\*Date\*\*: (.*?)\n\*\*Turns\*\*: (.*?)\n\*\*Source\*\*: \[(.*?)\]\((.*?)\)/s);
+        if (topMatch) {
+            // document.getElementById('chatViewerDate').textContent = topMatch[1];
+            document.getElementById('chatViewerTurns').textContent = `Turns: ${topMatch[2]}`;
+            document.getElementById('chatViewerSource').innerHTML = `Source: <a href="${escapeHTML(topMatch[4])}" target="_blank" style="color:var(--primary)">${escapeHTML(topMatch[3])}</a>`;
+        }
+        
+        // 拆分 Turns (## Turn X)
+        const parts = markdownText.split(/## Turn \d+/);
+        // 第一部分是元数据，略过
+        for (let i = 1; i < parts.length; i++) {
+            const turnText = parts[i];
+            
+            const divider = document.createElement('div');
+            divider.className = 'chat-turn-divider';
+            divider.textContent = `— Turn ${i} —`;
+            bodyEl.appendChild(divider);
+
+            // 拆分 User 和 Assistant
+            // ### 👤 User
+            // ### 🤖 Assistant
+            const rolesRegex = /### 👤 User(.*?)### 🤖 Assistant(.*?)$/s;
+            const match = turnText.match(rolesRegex);
+            
+            let userContent = '';
+            let assistantContent = '';
+            
+            if (match) {
+                userContent = match[1].trim();
+                assistantContent = match[2].trim();
+            } else {
+                // 回退处理
+                if(turnText.includes('### 👤 User')) userContent = turnText.split('### 👤 User')[1].trim();
+                else userContent = turnText.trim();
+            }
+
+            if (userContent) {
+                bodyEl.appendChild(createChatBubble('user', userContent, basePath));
+            }
+            if (assistantContent) {
+                // Assistant 的内容可能以后面的 --- 下一步： 或者其它结尾
+                let astStr = assistantContent;
+                if(astStr.includes('---')) {
+                    astStr = astStr.split('---')[0].trim();
+                }
+                bodyEl.appendChild(createChatBubble('assistant', astStr, basePath));
+            }
+        }
+    }
+
+    function createChatBubble(role, contentMarkdown, basePath) {
+        const row = document.createElement('div');
+        row.className = `chat-bubble-row ${role}`;
+        
+        const avatar = document.createElement('div');
+        avatar.className = 'chat-bubble-avatar';
+        avatar.textContent = role === 'user' ? '👤' : '🤖';
+        
+        const bubble = document.createElement('div');
+        bubble.className = 'chat-bubble';
+        
+        // 极简 md 解析用于展示：处理图片、代码块、加粗
+        let htmlContent = escapeHTML(contentMarkdown);
+        
+        // 解析图片：![alt](src) -> <img src="basePath/src" />
+        htmlContent = htmlContent.replace(/!\[(.*?)\]\((.*?)\)/g, (match, alt, src) => {
+            // 特殊处理assets路径
+            let imgUrl = src;
+            if (!src.startsWith('http') && !src.startsWith('data:')) {
+                imgUrl = `${basePath}/${src}`;
+            }
+            return `<img src="${imgUrl}" alt="${alt}" title="${alt}" onclick="window.open('${imgUrl}', '_blank')"/>`;
+        });
+        
+        // 解析代码块： ```lang ... ``` -> <pre><code>...</code></pre>
+        htmlContent = htmlContent.replace(/```(.*?)[\r\n]+([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+        
+        // 解析行内代码：`code` -> <code>code</code>
+        htmlContent = htmlContent.replace(/`([^`]+)`/g, '<code>$1</code>');
+        
+        // 解析加粗：**bold** -> <strong>bold</strong>
+        htmlContent = htmlContent.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        
+        bubble.innerHTML = htmlContent;
+        
+        row.appendChild(avatar);
+        row.appendChild(bubble);
+        return row;
+    }
+
 </script>
 </body>
 </html>
