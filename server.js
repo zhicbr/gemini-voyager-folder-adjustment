@@ -196,10 +196,47 @@ app.post('/api/associations', (req, res) => {
 // 删除单条关联
 app.delete('/api/associations/:conversationId', (req, res) => {
     try {
+        const id = req.params.conversationId;
         const data = readAssociations();
-        delete data.associations[req.params.conversationId];
-        writeAssociations(data);
+        if (data.associations[id]) {
+            delete data.associations[id];
+            writeAssociations(data);
+        }
         res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// 校验所有的关联数据是否存在
+app.get('/api/associations/verify', (req, res) => {
+    try {
+        const data = readAssociations();
+        const missing = [];
+        let total = 0;
+        
+        for (const [conversationId, assoc] of Object.entries(data.associations)) {
+            total++;
+            const name = assoc.folderName;
+            const type = assoc.type || 'folder';
+            
+            let exists = false;
+            if (type === 'file') {
+                exists = fs.existsSync(path.join(CHAT_HISTORY_DIR, name + '.md'));
+            } else {
+                exists = fs.existsSync(path.join(CHAT_HISTORY_DIR, name));
+            }
+            
+            if (!exists) {
+                missing.push({
+                    conversationId,
+                    folderName: name,
+                    type
+                });
+            }
+        }
+        
+        res.json({ success: true, total, missing });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }

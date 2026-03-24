@@ -1007,6 +1007,12 @@
             </div>
         </div>
         <div class="header-right">
+            <!-- 关联检查状态区 -->
+            <div id="assocCheckBadge" class="header-selection-badge" style="cursor: pointer; padding: 6px 12px; gap: 8px; margin-right: 8px; display: none;" onclick="openMissingAssocModal()" title="点击查看详情">
+                <span id="assocCheckIcon" style="font-size: 14px;">🟡</span>
+                <span class="badge-text" id="assocCheckText">校验中...</span>
+            </div>
+            
             <input type="text" id="searchInput" class="search-box" placeholder="搜索文件或文件夹...">
             <button class="theme-toggle" id="themeToggleBtn" title="切换深色/浅色主题">🌙</button>
         </div>
@@ -1058,12 +1064,26 @@
         </div>
     </div>
 
+    <!-- Missing Associations Viewer Modal -->
+    <div class="modal-overlay" id="missingAssocModal">
+        <div class="modal" style="width: 550px;">
+            <h3 style="color: #ea4335;">⚠️ 找不到的关联文件</h3>
+            <p style="color:var(--text-secondary);font-size:13px;margin-bottom:12px;">以下关联在 <code>chat_history</code> 目录中已丢失或被重命名。它们将以红色指示灯显示影响整体完整度。</p>
+            <div id="missingAssocList" style="max-height: 250px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 16px;"></div>
+            <div class="modal-actions" style="justify-content: space-between;">
+                <button class="btn btn-outline" style="color: #ea4335; border-color: #ea4335;" onclick="clearAllMissingAssociations()">清空所有无效关联</button>
+                <button class="btn" onclick="closeModal('missingAssocModal')">关闭</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Chat History Select Modal -->
     <div class="modal-overlay" id="chatSelectModal">
         <div class="modal chat-select-modal">
             <h3>📂 选择对话记录</h3>
             <p style="color:var(--text-secondary);font-size:13px;margin-bottom:12px;">未找到同名匹配，请手动选择
-                <code>chat_history</code> 中的对话记录关联到此卡片。选择后将重命名为对话标题。</p>
+                <code>chat_history</code> 中的对话记录关联到此卡片。选择后将重命名为对话标题。
+            </p>
             <input type="text" class="chat-select-search" id="chatSelectSearch" placeholder="搜索对话记录...">
             <div class="chat-select-list" id="chatSelectList"></div>
             <div class="modal-actions">
@@ -1124,9 +1144,93 @@
                     if (data.success) {
                         store.chatAssociations = data.data.associations || {};
                         renderMainContent(); // 重新渲染以更新图标状态
+                        verifyAssociations(); // 启动后自动检查关联文件是否丢失
                     }
                 })
                 .catch(err => console.error("加载关联数据失败", err));
+        }
+
+        let globalMissingAssociations = [];
+
+        async function verifyAssociations() {
+            const badge = document.getElementById('assocCheckBadge');
+            const icon = document.getElementById('assocCheckIcon');
+            const text = document.getElementById('assocCheckText');
+            badge.style.display = 'flex';
+            icon.textContent = '🟡';
+            text.textContent = '校验关联中...';
+            
+            try {
+                const res = await fetch('/api/associations/verify');
+                const data = await res.json();
+                if (data.success) {
+                    globalMissingAssociations = data.missing;
+                    if (data.total === 0) {
+                        badge.style.display = 'none';
+                    } else if (data.missing.length === 0) {
+                        icon.textContent = '🟢';
+                        text.innerHTML = `已关联 <span>${data.total}</span> 个`;
+                    } else {
+                        icon.textContent = '🔴';
+                        text.innerHTML = `缺失 <span>${data.missing.length}</span> 个`;
+                    }
+                } else {
+                    icon.textContent = '❌';
+                    text.textContent = '校验失败';
+                }
+            } catch (err) {
+                icon.textContent = '⚠️';
+                text.textContent = '网络错误';
+            }
+        }
+        
+        function openMissingAssocModal() {
+            if (!globalMissingAssociations || globalMissingAssociations.length === 0) {
+                verifyAssociations(); // 直接点击如果没错就当做刷新
+                return;
+            }
+            const list = document.getElementById('missingAssocList');
+            list.innerHTML = '';
+            globalMissingAssociations.forEach(m => {
+                const el = document.createElement('div');
+                el.style.padding = "10px 14px";
+                el.style.borderBottom = "1px solid var(--border)";
+                el.style.fontSize = "13px";
+                
+                // 尝试找一下这个ID对应的标题
+                let foundTitle = "未知对话标题";
+                const contents = getFolderContents();
+                for (const fId in contents) {
+                    const f = contents[fId].find(file => file.conversationId === m.conversationId);
+                    if (f) { foundTitle = f.title; break; }
+                }
+                
+                el.innerHTML = `<div style="font-weight: 500; margin-bottom: 4px;">${escapeHTML(foundTitle)} <span style="font-size: 11px; background: var(--hover-bg); padding: 1px 4px; border-radius: 3px;">ID: ${escapeHTML(m.conversationId)}</span></div>
+                                <div style="color: #ea4335;">缺失路径: /chat_history/${escapeHTML(m.folderName)}${m.type === 'file' ? '.md' : ''}</div>`;
+                list.appendChild(el);
+            });
+            document.getElementById('missingAssocModal').style.display = 'flex';
+        }
+        
+        async function clearAllMissingAssociations() {
+            if(!confirm(`确定要移除这 ${globalMissingAssociations.length} 条已失效的本机关联记录吗？此操作不可撤销。`)) return;
+            
+            const btn = document.querySelector('#missingAssocModal .btn-outline');
+            btn.textContent = '正在清理...';
+            btn.disabled = true;
+            
+            // 逐个调用 API 删除，之后再拉取
+            for (const m of globalMissingAssociations) {
+                await fetch(`/api/associations/${m.conversationId}`, { method: 'DELETE' });
+                delete store.chatAssociations[m.conversationId];
+            }
+            
+            btn.textContent = '清空所有无效关联';
+            btn.disabled = false;
+            
+            closeModal('missingAssocModal');
+            renderMainContent(); // 更新图标
+            verifyAssociations(); // 重新检查灯
         }
 
         // 页面加载时自动加载
