@@ -1022,11 +1022,16 @@
             try {
                 const res = await fetch(`/api/chat-history/search?title=${encodeURIComponent(title)}`);
                 const data = await res.json();
-                if (data.success && data.match) {
-                    // 自动匹配成功
-                    await confirmAndAssociateChat(id, data.match.name, data.match.type, title, title);
+                if (data.success && data.matches && data.matches.length > 0) {
+                    if (data.matches.length === 1) {
+                        // 只有一个匹配，精确或带横杠的匹配，自动关联
+                        await confirmAndAssociateChat(id, data.matches[0].name, data.matches[0].type, title, title);
+                    } else {
+                        // 有多个潜在匹配（如带 (1) 的重命名冲突），打开选择框让用户确认
+                        openChatSelectModal(id, title, data.matches);
+                    }
                 } else {
-                    // 无法自动匹配，打开手动选择模态框
+                    // 无法自动匹配，打开手动选择模态框，列出所有供搜索
                     openChatSelectModal(id, title, data.all || []);
                 }
             } catch (err) {

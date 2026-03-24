@@ -76,13 +76,31 @@ app.get('/api/chat-history/search', (req, res) => {
         if (!title) return res.status(400).json({ success: false, error: 'title is required' });
         
         const entries = listChatEntries();
-        // 精确匹配
-        let match = entries.find(e => e.name === title);
-        // 模糊匹配（包含关系）
-        if (!match) {
-            match = entries.find(e => e.name.includes(title) || title.includes(e.name));
-        }
-        res.json({ success: true, match: match || null, all: entries });
+        
+        // 1. 完全精确匹配
+        let exactMatches = entries.filter(e => e.name === title);
+        
+        // 2. 将空格替换为-的匹配
+        const dashedTitle = title.replace(/\s+/g, '-');
+        let dashMatches = entries.filter(e => e.name === dashedTitle && !exactMatches.includes(e));
+        
+        // 3. 冲突重命名匹配，如 "Title (1)", "Title-with-dashes (2)"
+        const isConflictMatch = (entryName, baseName) => {
+            if (entryName.startsWith(baseName + ' (')) {
+                const suffix = entryName.slice(baseName.length).trim();
+                return /^\(\d+\)$/.test(suffix);
+            }
+            return false;
+        };
+        
+        let conflictMatches = entries.filter(e => 
+            (isConflictMatch(e.name, title) || isConflictMatch(e.name, dashedTitle)) &&
+            !exactMatches.includes(e) && !dashMatches.includes(e)
+        );
+        
+        const potentialMatches = [...exactMatches, ...dashMatches, ...conflictMatches];
+        
+        res.json({ success: true, matches: potentialMatches, all: entries });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
