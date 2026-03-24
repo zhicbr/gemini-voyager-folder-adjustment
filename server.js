@@ -242,6 +242,29 @@ app.get('/api/associations/verify', (req, res) => {
     }
 });
 
+// 获取本地最新的数据 JSON
+app.get('/api/latest-data', (req, res) => {
+    try {
+        const rootDir = process.cwd();
+        const files = fs.readdirSync(rootDir);
+        const dataFiles = files.filter(f => f.startsWith('gemini-voyager-folders-') && f.endsWith('.json'));
+        
+        if (dataFiles.length === 0) {
+            return res.json({ success: false, message: '未找到数据文件' });
+        }
+        
+        // 按照文件名排序（因为文件名带有时间戳，越晚的字典序排在越后）
+        dataFiles.sort();
+        const latestFile = dataFiles[dataFiles.length - 1]; // 最后一条就是最新的
+        
+        const filePath = path.join(rootDir, latestFile);
+        const content = fs.readFileSync(filePath, 'utf-8');
+        res.json({ success: true, filename: latestFile, data: JSON.parse(content) });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 // ============ 启动 ============
 
 app.listen(PORT, () => {

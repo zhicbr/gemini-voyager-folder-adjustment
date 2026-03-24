@@ -992,7 +992,10 @@
         <div class="header-left">
             <h2 style="margin-right: 12px;">📁 资源管理器</h2>
             <input type="file" id="fileInput" accept=".json">
-            <button class="btn" onclick="document.getElementById('fileInput').click()">导入 JSON</button>
+            <button class="btn" style="position: relative;" onclick="document.getElementById('fileInput').click()">
+                导入 JSON
+                <span id="dataTimeDisplay" style="position: absolute; bottom: -16px; left: 50%; transform: translateX(-50%); font-size: 10px; color: var(--text-secondary); white-space: nowrap; font-weight: normal; display: none;" title="当前数据版本时间"></span>
+            </button>
             <button class="btn btn-outline" id="exportBtn" style="display:none;" onclick="exportData()">导出 JSON</button>
             <button class="btn btn-success" id="createRootBtn" style="display:none;"
                 onclick="promptCreateFolder(null)">➕ 新建根目录</button>
@@ -1233,8 +1236,53 @@
             verifyAssociations(); // 重新检查灯
         }
 
-        // 页面加载时自动加载
-        window.addEventListener('DOMContentLoaded', loadChatAssociations);
+        // 页面加载时自动加载关联与最新数据
+        window.addEventListener('DOMContentLoaded', () => {
+            loadChatAssociations();
+            fetch('/api/latest-data')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success && data.data && data.data.format === 'gemini-voyager.folders.v1') {
+                        store.rawData = data.data;
+                        store.currentFolderId = null;
+                        store.selectedItems.clear();
+
+                        navHistory = [null];
+                        navIndex = 0;
+
+                        document.getElementById('exportBtn').style.display = 'inline-block';
+                        document.getElementById('createRootBtn').style.display = 'inline-block';
+                        document.getElementById('headerSelectionBadge').style.visibility = 'visible';
+                        
+                        updateTotalFileCount();
+                        updateSelectionBadge();
+                        renderAll();
+                        
+                        // 移除侧边栏的空白提示
+                        const emptyState = document.querySelector('.sidebar .empty-state');
+                        if (emptyState) emptyState.style.display = 'none';
+                        
+                        updateDataTimeDisplay(data.filename);
+                    }
+                })
+                .catch(err => console.log('未自动定位到本地数据', err));
+        });
+
+        function updateDataTimeDisplay(filename) {
+            const display = document.getElementById('dataTimeDisplay');
+            if (!display) return;
+            
+            // e.g. gemini-voyager-folders-20260324-170714.json
+            const match = filename.match(/(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})/);
+            if (match) {
+                display.textContent = `${match[2]}-${match[3]} ${match[4]}:${match[5]}`;
+            } else {
+                // 如果没有时间格式，直接显示短文件名
+                const shortName = filename.length > 20 ? filename.substring(0, 10) + '...' : filename;
+                display.textContent = `${shortName}`;
+            }
+            display.style.display = 'block';
+        }
 
         let navHistory = [null];
         let navIndex = 0;
@@ -1270,9 +1318,12 @@
                         navHistory = [null];
                         navIndex = 0;
 
-                        document.getElementById('exportBtn').style.display = 'block';
-                        document.getElementById('createRootBtn').style.display = 'block';
+                        document.getElementById('exportBtn').style.display = 'inline-block';
+                        document.getElementById('createRootBtn').style.display = 'inline-block';
                         headerSelectionBadge.style.visibility = 'visible';
+                        
+                        updateDataTimeDisplay(file.name);
+                        
                         updateTotalFileCount();
                         updateSelectionBadge();
                         renderAll();
