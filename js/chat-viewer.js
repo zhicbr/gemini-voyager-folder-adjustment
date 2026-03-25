@@ -29,11 +29,16 @@ async function handleChatClick(event, id, title) {
 }
 
 async function confirmAndAssociateChat(id, entryName, type, uiTitle, newName) {
+    const pureEntry = getPureName(entryName);
+    const pureNew = getPureName(newName);
+
     try {
-        if (entryName !== newName) {
-            const data1 = await API.renameChatHistory(entryName, newName, type);
+        // 如果纯文本名称已匹配，则无需重命名（避免 Windows 非法字符问题）
+        if (pureEntry !== pureNew) {
+            const sanitizedNewName = sanitizeFileName(newName);
+            const data1 = await API.renameChatHistory(entryName, sanitizedNewName, type);
             if (!data1.success) throw new Error(data1.error || "重命名失败");
-            entryName = newName;
+            entryName = sanitizedNewName;
         }
 
         const data2 = await API.saveAssociation(id, entryName, type);

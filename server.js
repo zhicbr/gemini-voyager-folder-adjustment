@@ -19,6 +19,17 @@ app.use('/chat_history', express.static(CHAT_HISTORY_DIR));
 
 // ============ 工具函数 ============
 
+function sanitizeFileName(name) {
+    if (!name) return '';
+    return name.replace(/[\\/:*?"<>|]/g, '-').trim();
+}
+
+function getPureName(name) {
+    if (!name) return '';
+    // 使用 Unicode 属性匹配：保留所有语言的字母 (\p{L}) 和数字 (\p{N})，忽略标点符号和空格
+    return name.replace(/[^\p{L}\p{N}]/gu, '').toLowerCase();
+}
+
 function ensureAssociationsFile() {
     if (!fs.existsSync(ASSOCIATIONS_FILE)) {
         fs.writeFileSync(ASSOCIATIONS_FILE, JSON.stringify({ version: '1.0', associations: {} }, null, 2), 'utf-8');
@@ -155,7 +166,11 @@ app.get('/api/chat-history/search', (req, res) => {
         const dashedTitle = title.replace(/\s+/g, '-');
         let dashMatches = entries.filter(e => e.name === dashedTitle && !exactMatches.includes(e));
         
-        // 3. 冲突重命名匹配，如 "Title (1)", "Title-with-dashes (2)"
+        // 3. 纯文本匹配 (忽略所有标点)
+        const pureTitle = getPureName(title);
+        let pureMatches = entries.filter(e => getPureName(e.name) === pureTitle && !exactMatches.includes(e) && !dashMatches.includes(e));
+        
+        // 4. 冲突重命名匹配，如 "Title (1)", "Title-with-dashes (2)"
         const isConflictMatch = (entryName, baseName) => {
             if (entryName.startsWith(baseName + ' (')) {
                 const suffix = entryName.slice(baseName.length).trim();
@@ -166,10 +181,10 @@ app.get('/api/chat-history/search', (req, res) => {
         
         let conflictMatches = entries.filter(e => 
             (isConflictMatch(e.name, title) || isConflictMatch(e.name, dashedTitle)) &&
-            !exactMatches.includes(e) && !dashMatches.includes(e)
+            !exactMatches.includes(e) && !dashMatches.includes(e) && !pureMatches.includes(e)
         );
         
-        const potentialMatches = [...exactMatches, ...dashMatches, ...conflictMatches];
+        const potentialMatches = [...exactMatches, ...dashMatches, ...pureMatches, ...conflictMatches];
         
         res.json({ success: true, matches: potentialMatches, all: entries });
     } catch (err) {
@@ -218,13 +233,15 @@ app.post('/api/chat-history/rename', (req, res) => {
         
         if (type === 'file') {
             const oldPath = path.join(CHAT_HISTORY_DIR, oldName + '.md');
-            const newPath = path.join(CHAT_HISTORY_DIR, newName + '.md');
+            const sanitizedNewName = sanitizeFileName(newName);
+            const newPath = path.join(CHAT_HISTORY_DIR, sanitizedNewName + '.md');
             if (fs.existsSync(oldPath)) {
                 fs.renameSync(oldPath, newPath);
             }
         } else {
             const oldPath = path.join(CHAT_HISTORY_DIR, oldName);
-            const newPath = path.join(CHAT_HISTORY_DIR, newName);
+            const sanitizedNewName = sanitizeFileName(newName);
+            const newPath = path.join(CHAT_HISTORY_DIR, sanitizedNewName);
             if (fs.existsSync(oldPath)) {
                 fs.renameSync(oldPath, newPath);
             }
@@ -252,8 +269,9 @@ app.post('/api/associations', (req, res) => {
             return res.status(400).json({ success: false, error: 'conversationId and folderName are required' });
         }
         const data = readAssociations();
+        const safeFolderName = sanitizeFileName(folderName);
         data.associations[conversationId] = {
-            folderName,
+            folderName: safeFolderName,
             type: type || 'folder',
             importedAt: Date.now()
         };
@@ -333,8 +351,9 @@ app.post('/api/associations/batch', (req, res) => {
         const data = readAssociations();
         list.forEach(item => {
             if (item.conversationId && item.folderName) {
+                const safeFolderName = sanitizeFileName(item.folderName);
                 data.associations[item.conversationId] = {
-                    folderName: item.folderName,
+                    folderName: safeFolderName,
                     type: item.type || 'folder',
                     importedAt: Date.now()
                 };

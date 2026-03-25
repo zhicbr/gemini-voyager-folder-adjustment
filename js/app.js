@@ -204,9 +204,9 @@ async function autoImportDiscoveredChats() {
 
         // 尝试匹配标题
         const match = allFiles.find(f => {
-            const title = f.title.toLowerCase();
-            const dashedTitle = title.replace(/\s+/g, '-');
-            return title === entryName.toLowerCase() || dashedTitle === normalizedEntryName;
+            const pureTitle = getPureName(f.title);
+            const pureEntryName = getPureName(entryName);
+            return pureTitle === pureEntryName;
         });
 
         if (match) {

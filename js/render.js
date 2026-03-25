@@ -483,7 +483,7 @@ async function renderAssocBalance() {
                 <div style="font-size: 16px;">${isLinked ? '✅' : '❌'}</div>
                 <div style="flex: 1; overflow: hidden;">
                     <div style="font-weight: 500; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;" title="${escapeHTML(file.title)}">${escapeHTML(file.title)}</div>
-                    <div style="font-size: 11px; color: var(--text-secondary);">${isLinked ? assoc.folderName : '未发现匹配文件'}</div>
+                    <div style="font-size: 11px; color: var(--text-secondary);">${isLinked ? assoc.folderName : '预期文件名: ' + sanitizeFileName(file.title)}</div>
                 </div>
                 <div class="assoc-status-tag ${isLinked ? 'status-linked' : 'status-unlinked'}">${isLinked ? '已关联' : '待下载'}</div>
             `;
