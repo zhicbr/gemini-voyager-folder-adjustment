@@ -15,33 +15,31 @@
 
     <header>
         <div class="header-left">
-            <h2 style="margin-right: 12px;">📁 资源管理器</h2>
+            <h2 style="margin-right: 12px;">📁 对话管理器</h2>
             <input type="file" id="fileInput" accept=".json">
             <button class="btn" style="position: relative;" onclick="document.getElementById('fileInput').click()">
-                导入 JSON
+                导入
                 <span id="dataTimeDisplay" style="position: absolute; bottom: -16px; left: 50%; transform: translateX(-50%); font-size: 10px; color: var(--text-secondary); white-space: nowrap; font-weight: normal; display: none;" title="当前数据版本时间"></span>
             </button>
-            <button class="btn btn-outline" id="exportBtn" style="display:none;" onclick="exportData()">导出 JSON</button>
+            <button class="btn btn-outline" id="exportBtn" style="display:none;" onclick="exportData()">导出</button>
             <button class="btn btn-success" id="createRootBtn" style="display:none;"
-                onclick="promptCreateFolder(null)">➕ 新建根目录</button>
+                onclick="promptCreateFolder(null)">➕ 根目录</button>
 
             <div id="headerSelectionBadge" class="header-selection-badge" style="visibility: hidden;">
-                <div class="badge-text">
-                    共 <span id="totalFileCount">0</span> 个文件
-                    <span class="badge-divider">|</span>
-                    已选中 <span id="fileCount">0</span> 个
+                <div class="badge-text" id="statsBadgeText">
+                    文件：总计 <span id="totalFileCount">0</span>，选中 <span id="fileCount">0</span>
                 </div>
                 <button class="btn-clear" id="clearSelectionBtn" onclick="clearSelection()" disabled>清空</button>
             </div>
         </div>
         <div class="header-right">
             <!-- 关联检查状态区 -->
-            <div id="assocCheckBadge" class="header-selection-badge" style="cursor: pointer; padding: 6px 12px; gap: 8px; margin-right: 8px; display: none;" onclick="openMissingAssocModal()" title="点击查看详情">
+            <div id="assocCheckBadge" class="header-selection-badge" style="cursor: pointer; padding: 6px 12px; gap: 8px; margin-right: 8px; display: none;" onclick="handleAssocBadgeClick()" title="点击查看详情">
                 <span id="assocCheckIcon" style="font-size: 14px;">🟡</span>
                 <span class="badge-text" id="assocCheckText">校验中...</span>
             </div>
             
-            <button class="btn-outline" style="padding: 6px 10px; margin-right: 8px; font-size: 13px; border-radius: 6px; cursor: pointer;" onclick="unzipChatPackages()" title="自动解压 chat_history 中的 zip 包">📦 解压包</button>
+            <button class="btn-outline" style="padding: 6px 10px; margin-right: 8px; font-size: 13px; border-radius: 6px; cursor: pointer;" onclick="unzipChatPackages()" title="自动解压 chat_history 中的 zip 包">📦</button>
             <input type="text" id="searchInput" class="search-box" placeholder="搜索标题 (按回车进行全局全文搜索...)">
             <button class="theme-toggle" id="themeToggleBtn" title="切换深色/浅色主题">🌙</button>
         </div>
@@ -51,7 +49,7 @@
         <div class="sidebar">
             <div class="navigation-tabs">
                 <div class="nav-tab active" id="tabExplorer" onclick="switchToExplorer()">
-                    <span>📁 资源管理器</span>
+                    <span>📁 对话管理器</span>
                 </div>
                 <div class="nav-tab" id="tabMarkers" onclick="switchToMarkers()">
                     <span>✨ 划词与收藏</span>

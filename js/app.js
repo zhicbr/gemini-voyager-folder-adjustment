@@ -3,6 +3,7 @@
 let navHistory = [null];
 let navIndex = 0;
 let globalMissingAssociations = [];
+let globalDiscoveredAssociations = [];
 
 // =====================================
 // 初始化
@@ -132,22 +133,32 @@ async function verifyAssociations() {
     const badge = document.getElementById('assocCheckBadge');
     const icon = document.getElementById('assocCheckIcon');
     const text = document.getElementById('assocCheckText');
+    
     badge.style.display = 'flex';
     icon.textContent = '🟡';
-    text.textContent = '校验关联中...';
+    text.textContent = '校验中...';
 
     try {
         const data = await API.verifyAssociations();
         if (data.success) {
             globalMissingAssociations = data.missing;
-            if (data.total === 0) {
-                badge.style.display = 'none';
-            } else if (data.missing.length === 0) {
-                icon.textContent = '🟢';
-                text.innerHTML = `已关联 <span>${data.total}</span> 个`;
-            } else {
+            globalDiscoveredAssociations = data.discoveredList || [];
+            
+            const a = data.active;
+            const b = data.discovered;
+            
+            if (b > 0) {
+                icon.textContent = '✨';
+                text.innerHTML = `关联：${a} <span style="color: var(--success); font-weight: bold; margin-left: 4px;">+ ${b} 新增</span>`;
+                badge.title = `发现 ${b} 个未关联对话，点击一键按标题匹配导入`;
+            } else if (data.missing.length > 0) {
                 icon.textContent = '🔴';
-                text.innerHTML = `缺失 <span>${data.missing.length}</span> 个`;
+                text.innerHTML = `关联：${a} <span style="color: var(--error); margin-left: 4px;">(${data.missing.length} 缺失)</span>`;
+                badge.title = `有 ${data.missing.length} 条关联记录对应的本地文件已丢失，点击清理`;
+            } else {
+                icon.textContent = '✅';
+                text.textContent = `关联：${a}`;
+                badge.title = "所有关联正常";
             }
         } else {
             icon.textContent = '❌';
@@ -156,6 +167,83 @@ async function verifyAssociations() {
     } catch (err) {
         icon.textContent = '⚠️';
         text.textContent = '网络错误';
+    }
+}
+
+async function handleAssocBadgeClick() {
+    if (globalDiscoveredAssociations && globalDiscoveredAssociations.length > 0) {
+        await autoImportDiscoveredChats();
+    } else if (globalMissingAssociations && globalMissingAssociations.length > 0) {
+        openMissingAssocModal();
+    } else {
+        verifyAssociations();
+    }
+}
+
+async function autoImportDiscoveredChats() {
+    if (!store.rawData) {
+        alert("请先导入数据 JSON 才能进行自动匹配");
+        return;
+    }
+
+    const discovered = globalDiscoveredAssociations;
+    if (!discovered || discovered.length === 0) return;
+
+    const matches = [];
+    const contents = getFolderContents();
+    
+    // 收集所有扁平化的对话列表
+    const allFiles = [];
+    for (const folderId in contents) {
+        contents[folderId].forEach(f => allFiles.push(f));
+    }
+
+    discovered.forEach(entry => {
+        const entryName = entry.name;
+        const normalizedEntryName = entryName.toLowerCase().replace(/\s+/g, '-');
+
+        // 尝试匹配标题
+        const match = allFiles.find(f => {
+            const title = f.title.toLowerCase();
+            const dashedTitle = title.replace(/\s+/g, '-');
+            return title === entryName.toLowerCase() || dashedTitle === normalizedEntryName;
+        });
+
+        if (match) {
+            matches.push({
+                conversationId: match.conversationId,
+                folderName: entryName,
+                type: entry.type
+            });
+        }
+    });
+
+    if (matches.length === 0) {
+        alert(`扫描到 ${discovered.length} 个新文件，但未能根据标题自动匹配到现有对话。\n请点击具体对话的 💬 图标手动关联。`);
+        return;
+    }
+
+    if (confirm(`扫描到 ${discovered.length} 个新文件，其中 ${matches.length} 个可以通过标题自动匹配。\n是否立即执行批量关联？`)) {
+        try {
+            const res = await API.batchSaveAssociations(matches);
+            if (res.success) {
+                alert(`成功导入 ${res.count} 条关联记录！`);
+                // 更新 store 中的内存缓存
+                matches.forEach(m => {
+                    store.chatAssociations[m.conversationId] = {
+                        folderName: m.folderName,
+                        type: m.type,
+                        importedAt: Date.now()
+                    };
+                });
+                renderAll();
+                verifyAssociations();
+            } else {
+                alert("批量导入失败：" + res.error);
+            }
+        } catch (err) {
+            alert("请求失败：" + err.message);
+        }
     }
 }
 
@@ -228,6 +316,7 @@ function handleFileImport(e) {
                 updateTotalFileCount();
                 updateSelectionBadge();
                 renderAll();
+                verifyAssociations(); // 重新校验
             } else { alert('不支持的 JSON 格式！'); }
         } catch (err) { alert('解析失败：' + err.message); }
     };
@@ -249,9 +338,9 @@ function switchToMarkers() {
 }
 
 async function unzipChatPackages() {
-    const btn = event ? event.currentTarget : null;
+    const btn = event ? (event.currentTarget || event.target) : null;
     if (btn) {
-        btn.innerHTML = '⏳ 正在解压...';
+        btn.innerHTML = '⏳';
         btn.disabled = true;
     }
 
@@ -271,7 +360,7 @@ async function unzipChatPackages() {
         alert("请求解压服务失败: " + err.message);
     } finally {
         if (btn) {
-            btn.innerHTML = '📦 解压包';
+            btn.innerHTML = '📦';
             btn.disabled = false;
         }
     }

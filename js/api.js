@@ -24,6 +24,15 @@ const API = {
         return await res.json();
     },
 
+    async batchSaveAssociations(list) {
+        const res = await fetch('/api/associations/batch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ list })
+        });
+        return await res.json();
+    },
+
     async searchChatHistory(title) {
         const res = await fetch(`/api/chat-history/search?title=${encodeURIComponent(title)}`);
         return await res.json();

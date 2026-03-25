@@ -279,15 +279,17 @@ app.delete('/api/associations/:conversationId', (req, res) => {
     }
 });
 
-// 校验所有的关联数据是否存在
+// 校验所有的关联数据是否存在，并扫描新发现的对话 (a + b 模式)
 app.get('/api/associations/verify', (req, res) => {
     try {
         const data = readAssociations();
-        const missing = [];
-        let total = 0;
+        const entries = listChatEntries(); // 获取 chat_history 下所有实际存在的文件/文件夹
         
+        const missing = [];
+        let activeCount = 0;
+        
+        // 1. 检查已有的关联 (a)
         for (const [conversationId, assoc] of Object.entries(data.associations)) {
-            total++;
             const name = assoc.folderName;
             const type = assoc.type || 'folder';
             
@@ -297,17 +299,48 @@ app.get('/api/associations/verify', (req, res) => {
             } else {
                 exists = fs.existsSync(path.join(CHAT_HISTORY_DIR, name));
             }
-            
-            if (!exists) {
-                missing.push({
-                    conversationId,
-                    folderName: name,
-                    type
-                });
+
+            if (exists) {
+                activeCount++;
+            } else {
+                missing.push({ conversationId, folderName: name, type });
             }
         }
+
+        // 2. 扫描发现的新增 (b) (在 chat_history 中但不在 associations 中)
+        const associatedFolderNames = Object.values(data.associations).map(a => a.folderName);
+        const discovered = entries.filter(e => !associatedFolderNames.includes(e.name));
+
+        res.json({ 
+            success: true, 
+            active: activeCount, 
+            discovered: discovered.length,
+            discoveredList: discovered, 
+            missing 
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// 批量保存关联
+app.post('/api/associations/batch', (req, res) => {
+    try {
+        const { list } = req.body; // [{ conversationId, folderName, type }]
+        if (!Array.isArray(list)) return res.status(400).json({ success: false, error: 'list must be an array' });
         
-        res.json({ success: true, total, missing });
+        const data = readAssociations();
+        list.forEach(item => {
+            if (item.conversationId && item.folderName) {
+                data.associations[item.conversationId] = {
+                    folderName: item.folderName,
+                    type: item.type || 'folder',
+                    importedAt: Date.now()
+                };
+            }
+        });
+        writeAssociations(data);
+        res.json({ success: true, count: list.length });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
