@@ -984,6 +984,64 @@
             align-items: center;
             margin-top: 12px;
         }
+
+        /* 全局搜索结果样式 */
+        .search-results-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .search-result-item {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 16px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .search-result-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border-color: var(--primary);
+        }
+
+        .search-result-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-main);
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .search-result-snippet {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .search-result-keyword {
+            background: rgba(255, 235, 59, 0.3);
+            color: #d32f2f;
+            padding: 0 2px;
+            border-radius: 2px;
+            font-weight: 600;
+        }
+
+        mark {
+            background: #fff59d;
+            color: #333;
+            border-radius: 2px;
+            padding: 0 2px;
+        }
     </style>
 </head>
 
@@ -1017,7 +1075,7 @@
                 <span class="badge-text" id="assocCheckText">校验中...</span>
             </div>
             
-            <input type="text" id="searchInput" class="search-box" placeholder="搜索文件或文件夹...">
+            <input type="text" id="searchInput" class="search-box" placeholder="搜索标题 (按回车进行全局全文搜索...)">
             <button class="theme-toggle" id="themeToggleBtn" title="切换深色/浅色主题">🌙</button>
         </div>
     </header>
@@ -1137,7 +1195,8 @@
             currentFolderId: null,
             searchQuery: '',
             selectedItems: new Set(),
-            chatAssociations: {} // 新增对话内容关联数据
+            chatAssociations: {}, // 新增对话内容关联数据
+            globalSearchResults: null // 新增全局全文搜索结果
         };
 
         // 初始化时加载已有或本地缓存的关联数据
@@ -1646,6 +1705,54 @@
             let itemsToRender = [];
             const breadcrumbCount = document.getElementById('breadcrumbCount'); // 获取新增的计数标签
 
+            // 如果有全局搜索结果，优先渲染全局搜索试图
+            if (store.globalSearchResults) {
+                breadcrumbText.textContent = `全局全文搜索结果: "${store.searchQuery}"`;
+                breadcrumbCount.textContent = `(共 ${store.globalSearchResults.length} 处匹配)`;
+                
+                const list = document.createElement('div');
+                list.className = 'search-results-list';
+                list.style.width = '100%';
+                
+                if (store.globalSearchResults.length === 0) {
+                    contentGrid.innerHTML = `<div class="empty-state">未在任何对话内容中找到关键词 "${escapeHTML(store.searchQuery)}"</div>`;
+                    return;
+                }
+
+                store.globalSearchResults.forEach(res => {
+                    // 查找对应 conversationId 的标题
+                    let convoTitle = "未知对话";
+                    const contents = getFolderContents();
+                    for (const fId in contents) {
+                        const found = contents[fId].find(f => f.conversationId === res.conversationId);
+                        if (found) { convoTitle = found.title; break; }
+                    }
+
+                    const item = document.createElement('div');
+                    item.className = 'search-result-item';
+                    
+                    // 高亮摘要中的关键词
+                    const safeKeyword = escapeHTML(res.keyword);
+                    const regex = new RegExp(`(${safeKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+                    const highlightedSnippet = escapeHTML(res.snippet).replace(regex, '<span class="search-result-keyword">$1</span>');
+
+                    item.innerHTML = `
+                        <div class="search-result-title">📄 ${escapeHTML(convoTitle)}</div>
+                        <div class="search-result-snippet">${highlightedSnippet}</div>
+                    `;
+                    
+                    item.onclick = () => {
+                        const assoc = store.chatAssociations[res.conversationId];
+                        openChatViewer(res.conversationId, convoTitle, assoc, res.keyword);
+                    };
+                    
+                    list.appendChild(item);
+                });
+                
+                contentGrid.appendChild(list);
+                return;
+            }
+
             if (store.searchQuery) {
                 breadcrumbText.textContent = `搜索结果: "${store.searchQuery}"`;
                 const q = store.searchQuery.toLowerCase();
@@ -1891,8 +1998,32 @@
 
         searchInput.addEventListener('input', (e) => {
             store.searchQuery = e.target.value.trim();
+            store.globalSearchResults = null; // 输入改变时清除全局搜索结果，回到普通标题过滤
             renderMainContent();
         });
+
+        searchInput.addEventListener('keydown', async (e) => {
+            if (e.key === 'Enter') {
+                const query = e.target.value.trim();
+                if (!query) return;
+                performGlobalSearch(query);
+            }
+        });
+
+        async function performGlobalSearch(query) {
+            breadcrumbCount.textContent = '(正在全库搜索内容...)';
+            try {
+                const res = await fetch(`/api/search-messages?q=${encodeURIComponent(query)}`);
+                const data = await res.json();
+                if (data.success) {
+                    store.globalSearchResults = data.results;
+                    renderMainContent();
+                }
+            } catch (err) {
+                console.error("全局搜索失败", err);
+                alert("全局搜索请求失败");
+            }
+        }
 
         function exportData() {
             if (!store.rawData) return;
@@ -2024,7 +2155,7 @@
         }
 
         // 解析并显示聊天记录
-        async function openChatViewer(id, title, assoc) {
+        async function openChatViewer(id, title, assoc, highlightKeyword = null) {
             currentViewingChatId = id;
             document.getElementById('chatViewerTitle').textContent = title;
             document.getElementById('chatViewerDate').textContent = new Date(assoc.importedAt).toLocaleString();
@@ -2037,7 +2168,17 @@
                 const res = await fetch(`/api/chat-history/read?name=${encodeURIComponent(assoc.folderName)}&type=${assoc.type}`);
                 const data = await res.json();
                 if (data.success) {
-                    parseAndRenderMarkdown(data.content, data.basePath);
+                    parseAndRenderMarkdown(data.content, data.basePath, highlightKeyword);
+                    
+                    // 如果有高亮词，自动滚动到第一个 <mark> 标签处
+                    if (highlightKeyword) {
+                        setTimeout(() => {
+                            const firstMark = document.querySelector('#chatViewerBody mark');
+                            if (firstMark) {
+                                firstMark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }
+                        }, 100);
+                    }
                 } else {
                     document.getElementById('chatViewerBody').innerHTML = `<div style="text-align:center; padding: 40px; color: red;">加载失败: ${escapeHTML(data.error)}</div>`;
                 }
@@ -2064,7 +2205,7 @@
         }
 
         // 简单的 Markdown 解析器转气泡 UI 渲染
-        function parseAndRenderMarkdown(markdownText, basePath) {
+        function parseAndRenderMarkdown(markdownText, basePath, highlightKeyword = null) {
             const bodyEl = document.getElementById('chatViewerBody');
             bodyEl.innerHTML = '';
 
@@ -2109,18 +2250,18 @@
                 }
 
                 if (userContent) {
-                    bodyEl.appendChild(createChatBubble('user', userContent, basePath));
+                    bodyEl.appendChild(createChatBubble('user', userContent, basePath, highlightKeyword));
                 }
                 if (assistantContent) {
                     // 直接使用全部内容，避免使用 --- 切断，会破坏表格和正常分隔符
                     let astStr = assistantContent;
                     // 如果确有特征的脚标可以通过特定标识符剔除，但通常直接渲染即可
-                    bodyEl.appendChild(createChatBubble('assistant', astStr, basePath));
+                    bodyEl.appendChild(createChatBubble('assistant', astStr, basePath, highlightKeyword));
                 }
             }
         }
 
-        function createChatBubble(role, contentMarkdown, basePath) {
+        function createChatBubble(role, contentMarkdown, basePath, highlightKeyword = null) {
             const row = document.createElement('div');
             row.className = `chat-bubble-row ${role}`;
 
@@ -2146,6 +2287,12 @@
                 htmlContent = marked.parse(processedMarkdown, { breaks: true });
             } else {
                 htmlContent = escapeHTML(processedMarkdown); // Fallback
+            }
+
+            // 全文高亮处理
+            if (highlightKeyword) {
+                const regex = new RegExp(`(${highlightKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+                htmlContent = htmlContent.replace(regex, '<mark>$1</mark>');
             }
 
             bubble.innerHTML = htmlContent;

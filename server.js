@@ -265,6 +265,57 @@ app.get('/api/latest-data', (req, res) => {
     }
 });
 
+// 全局对话消息搜索接口
+app.get('/api/search-messages', (req, res) => {
+    try {
+        const query = (req.query.q || '').toLowerCase();
+        if (!query) return res.json({ success: true, results: [] });
+
+        const data = readAssociations();
+        const results = [];
+        
+        for (const [conversationId, assoc] of Object.entries(data.associations)) {
+            const name = assoc.folderName;
+            const type = assoc.type || 'folder';
+            
+            let filePath = '';
+            if (type === 'file') {
+                filePath = path.join(CHAT_HISTORY_DIR, name + '.md');
+            } else {
+                filePath = path.join(CHAT_HISTORY_DIR, name, 'chat.md');
+            }
+            
+            if (fs.existsSync(filePath)) {
+                const content = fs.readFileSync(filePath, 'utf-8');
+                const lowerContent = content.toLowerCase();
+                const idx = lowerContent.indexOf(query);
+                
+                if (idx !== -1) {
+                    // 提取关键词前后的上下文摘要 (前后各取 40 个字符)
+                    const snippetStart = Math.max(0, idx - 40);
+                    const snippetEnd = Math.min(content.length, idx + query.length + 40);
+                    let snippet = content.substring(snippetStart, snippetEnd).replace(/[\r\n]+/g, ' ').trim();
+                    
+                    if (snippetStart > 0) snippet = '...' + snippet;
+                    if (snippetEnd < content.length) snippet = snippet + '...';
+                    
+                    results.push({
+                        conversationId,
+                        folderName: name,
+                        snippet,
+                        type,
+                        keyword: req.query.q
+                    });
+                }
+            }
+        }
+        
+        res.json({ success: true, results });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 // ============ 启动 ============
 
 app.listen(PORT, () => {
