@@ -368,9 +368,10 @@ async function unzipChatPackages() {
 
 function navigateToFolder(folderId) {
     if (store.currentView !== 'explorer') switchToExplorer();
-    let wasSearching = !!store.searchQuery;
+    let wasSearching = !!store.searchQuery || !!store.globalSearchResults;
     if (wasSearching) {
         store.searchQuery = '';
+        store.globalSearchResults = null;
         document.getElementById('searchInput').value = '';
     }
     if (store.currentFolderId === folderId) {
@@ -385,7 +386,11 @@ function navigateToFolder(folderId) {
 }
 
 function goBack() {
-    if (store.searchQuery) { store.searchQuery = ''; document.getElementById('searchInput').value = ''; }
+    if (store.searchQuery || store.globalSearchResults) { 
+        store.searchQuery = ''; 
+        store.globalSearchResults = null;
+        document.getElementById('searchInput').value = ''; 
+    }
     if (navIndex > 0) {
         navIndex--;
         store.currentFolderId = navHistory[navIndex];
@@ -394,7 +399,11 @@ function goBack() {
 }
 
 function goForward() {
-    if (store.searchQuery) { store.searchQuery = ''; document.getElementById('searchInput').value = ''; }
+    if (store.searchQuery || store.globalSearchResults) { 
+        store.searchQuery = ''; 
+        store.globalSearchResults = null;
+        document.getElementById('searchInput').value = ''; 
+    }
     if (navIndex < navHistory.length - 1) {
         navIndex++;
         store.currentFolderId = navHistory[navIndex];
