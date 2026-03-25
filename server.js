@@ -395,9 +395,9 @@ app.get('/api/search-messages', (req, res) => {
                 const idx = lowerContent.indexOf(query);
                 
                 if (idx !== -1) {
-                    // 提取关键词前后的上下文摘要 (前后各取 40 个字符)
-                    const snippetStart = Math.max(0, idx - 40);
-                    const snippetEnd = Math.min(content.length, idx + query.length + 40);
+                    // 提取关键词前后的上下文摘要 (前后各取 20 个字符，保证在卡片 2 行内显示)
+                    const snippetStart = Math.max(0, idx - 20);
+                    const snippetEnd = Math.min(content.length, idx + query.length + 20);
                     let snippet = content.substring(snippetStart, snippetEnd).replace(/[\r\n]+/g, ' ').trim();
                     
                     if (snippetStart > 0) snippet = '...' + snippet;

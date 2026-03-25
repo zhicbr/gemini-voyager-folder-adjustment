@@ -258,7 +258,7 @@ function renderMainContent() {
                         <button class="action-icon chat-import-btn ${isImported ? 'imported' : 'not-imported'}">💬</button>
                     </div>
                 </div>
-                <div class="search-result-snippet" style="margin-top: 8px;">...${highlightedSnippet}...</div>
+                <div class="search-result-snippet" style="margin-top: 8px;">${highlightedSnippet}</div>
             `;
             
             card.onclick = () => {
