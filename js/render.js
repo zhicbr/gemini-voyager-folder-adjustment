@@ -224,10 +224,6 @@ function renderMainContent() {
         breadcrumbText.textContent = `全局全文搜索结果: "${store.searchQuery}"`;
         breadcrumbCount.textContent = `(共 ${store.globalSearchResults.length} 处匹配)`;
         
-        const list = document.createElement('div');
-        list.className = 'search-results-list';
-        list.style.width = '100%';
-        
         if (store.globalSearchResults.length === 0) {
             contentGrid.innerHTML = `<div class="empty-state">未在任何对话内容中找到关键词 "${escapeHTML(store.searchQuery)}"</div>`;
             return;
@@ -241,27 +237,40 @@ function renderMainContent() {
                 if (found) { convoTitle = found.title; break; }
             }
 
-            const item = document.createElement('div');
-            item.className = 'search-result-item';
-            
+            const assoc = store.chatAssociations[res.conversationId];
+            const isImported = !!assoc;
+
+            const card = document.createElement('div');
+            card.className = 'item-card search-result-card'; // 使用 item-card 样式
+            if (isImported) card.classList.add('imported-assoc');
+
             const safeKeyword = escapeHTML(res.keyword);
             const regex = new RegExp(`(${safeKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
             const highlightedSnippet = escapeHTML(res.snippet).replace(regex, '<span class="search-result-keyword">$1</span>');
 
-            item.innerHTML = `
-                <div class="search-result-title">📄 ${escapeHTML(convoTitle)}</div>
-                <div class="search-result-snippet">${highlightedSnippet}</div>
+            card.innerHTML = `
+                <div class="item-header">
+                    <div class="item-icon file">📄</div>
+                </div>
+                <div class="item-title-wrapper">
+                    <div class="item-title" title="${escapeHTML(convoTitle)}">${escapeHTML(convoTitle)}</div>
+                    <div class="icon-group">
+                        <button class="action-icon chat-import-btn ${isImported ? 'imported' : 'not-imported'}">💬</button>
+                    </div>
+                </div>
+                <div class="search-result-snippet" style="margin-top: 8px;">...${highlightedSnippet}...</div>
             `;
             
-            item.onclick = () => {
-                const assoc = store.chatAssociations[res.conversationId];
-                openChatViewer(res.conversationId, convoTitle, assoc, res.keyword);
+            card.onclick = () => {
+                if (isImported) {
+                    openChatViewer(res.conversationId, convoTitle, assoc, res.keyword);
+                } else {
+                    alert("该对话尚未关联本地文件，请先手动匹配关联。");
+                }
             };
             
-            list.appendChild(item);
+            contentGrid.appendChild(card);
         });
-        
-        contentGrid.appendChild(list);
         return;
     }
 
