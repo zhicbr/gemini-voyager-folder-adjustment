@@ -4,7 +4,7 @@ const path = require('path');
 const AdmZip = require('adm-zip');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 const CHAT_HISTORY_DIR = path.join(__dirname, 'chat_history');
 const ASSOCIATIONS_FILE = path.join(__dirname, 'chat_associations.json');
 const MARKERS_FILE = path.join(__dirname, 'markers.json');
@@ -316,7 +316,8 @@ app.get('/api/associations/verify', (req, res) => {
             active: activeCount, 
             discovered: discovered.length,
             discoveredList: discovered, 
-            missing 
+            missing,
+            historyEntries: entries
         });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });

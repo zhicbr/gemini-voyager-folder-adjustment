@@ -6,6 +6,8 @@ function renderAll() {
     renderSidebar();
     if (store.currentView === 'markers') {
         renderMarkersPage();
+    } else if (store.currentView === 'assoc-balance') {
+        renderAssocBalance();
     } else {
         renderMainContent();
     }
@@ -26,6 +28,7 @@ function renderMarkersPage() {
     const container = document.createElement('div');
     container.className = 'markers-manager-container';
     container.style.width = '100%';
+    container.style.gridColumn = '1 / -1';
     container.style.display = 'flex';
     container.style.flexDirection = 'column';
     container.style.gap = '24px';
@@ -413,6 +416,98 @@ function renderMainContent() {
     });
 
     updateSelectionBadge();
+}
+
+async function renderAssocBalance() {
+    const contentGrid = document.getElementById('contentGrid');
+    const breadcrumbText = document.getElementById('breadcrumbText');
+    const breadcrumbCount = document.getElementById('breadcrumbCount');
+    
+    contentGrid.innerHTML = '<div class="empty-state">正在诊断关联平衡状态...</div>';
+    breadcrumbText.textContent = '关联平衡诊断';
+    breadcrumbCount.textContent = '';
+
+    try {
+        const verifyData = await API.verifyAssociations();
+        if (!verifyData.success) throw new Error(verifyData.error);
+
+        contentGrid.innerHTML = '';
+        const container = document.createElement('div');
+        container.className = 'assoc-balance-container';
+        container.style.width = '100%';
+        container.style.gridColumn = '1 / -1'; // 确保占满整行网格，消除右侧空白
+
+        // 左栏: JSON 预期对话 (Titles)
+        const leftCol = document.createElement('div');
+        leftCol.className = 'assoc-column';
+        
+        const allFiles = [];
+        const contents = getFolderContents();
+        for (const fId in contents) {
+            contents[fId].forEach(f => allFiles.push(f));
+        }
+
+        leftCol.innerHTML = `
+            <div class="assoc-column-header">
+                <h3>JSON 预期对话 (Titles)</h3>
+                <span class="badge-text" style="font-size:12px; color:var(--text-secondary);">共 ${allFiles.length} 个</span>
+            </div>
+            <div class="assoc-column-scroll" id="assocLeftScroll"></div>
+        `;
+
+        // 右栏: 本地文件
+        const rightCol = document.createElement('div');
+        rightCol.className = 'assoc-column';
+        rightCol.innerHTML = `
+            <div class="assoc-column-header">
+                <h3>chat_history 本地文件</h3>
+                <span class="badge-text" style="font-size:12px; color:var(--text-secondary);">共 ${verifyData.historyEntries.length} 个</span>
+            </div>
+            <div class="assoc-column-scroll" id="assocRightScroll"></div>
+        `;
+
+        container.appendChild(leftCol);
+        container.appendChild(rightCol);
+        contentGrid.appendChild(container);
+
+        const leftScroll = container.querySelector('#assocLeftScroll');
+        const rightScroll = container.querySelector('#assocRightScroll');
+
+        // 渲染左侧
+        allFiles.forEach(file => {
+            const assoc = store.chatAssociations[file.conversationId];
+            const isLinked = !!assoc;
+            const card = document.createElement('div');
+            card.className = `assoc-card-json ${isLinked ? 'is-linked' : 'is-missing'}`;
+            card.innerHTML = `
+                <div style="font-size: 16px;">${isLinked ? '✅' : '❌'}</div>
+                <div style="flex: 1; overflow: hidden;">
+                    <div style="font-weight: 500; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;" title="${escapeHTML(file.title)}">${escapeHTML(file.title)}</div>
+                    <div style="font-size: 11px; color: var(--text-secondary);">${isLinked ? assoc.folderName : '未发现匹配文件'}</div>
+                </div>
+                <div class="assoc-status-tag ${isLinked ? 'status-linked' : 'status-unlinked'}">${isLinked ? '已关联' : '待下载'}</div>
+            `;
+            leftScroll.appendChild(card);
+        });
+
+        // 渲染右侧
+        verifyData.historyEntries.forEach(entry => {
+            const entryKey = entry.name;
+            const isLinked = Object.values(store.chatAssociations).some(a => a.folderName === entryKey);
+            const card = document.createElement('div');
+            card.className = `assoc-card-local ${isLinked ? '' : 'is-orphan'}`;
+            card.innerHTML = `
+                <div style="font-size: 14px;">${entry.type === 'folder' ? '📁' : '📄'}</div>
+                <div style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHTML(entry.name)}">${escapeHTML(entry.name)}</div>
+                <div class="assoc-status-tag ${isLinked ? 'status-linked' : 'status-warning'}">${isLinked ? '已占用' : '待录入'}</div>
+            `;
+            rightScroll.appendChild(card);
+        });
+
+    } catch (err) {
+        contentGrid.innerHTML = `<div class="empty-state" style="color:red;">加载失败: ${err.message}</div>`;
+        console.error(err);
+    }
 }
 
 function updateNavButtons() {

@@ -334,6 +334,15 @@ function switchToMarkers() {
     store.currentView = 'markers';
     document.getElementById('tabMarkers').classList.add('active');
     document.getElementById('tabExplorer').classList.remove('active');
+    document.getElementById('tabAssocBalance').classList.remove('active');
+    renderAll();
+}
+
+function switchToAssocBalance() {
+    store.currentView = 'assoc-balance';
+    document.getElementById('tabAssocBalance').classList.add('active');
+    document.getElementById('tabExplorer').classList.remove('active');
+    document.getElementById('tabMarkers').classList.remove('active');
     renderAll();
 }
 
