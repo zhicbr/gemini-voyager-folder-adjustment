@@ -65,5 +65,10 @@ const API = {
             body: JSON.stringify(markers)
         });
         return await res.json();
+    },
+
+    async unzipChats() {
+        const res = await fetch('/api/unzip-chats', { method: 'POST' });
+        return await res.json();
     }
 };

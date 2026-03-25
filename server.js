@@ -1,6 +1,7 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
+const AdmZip = require('adm-zip');
 
 const app = express();
 const PORT = 3000;
@@ -55,6 +56,56 @@ function readMarkers() {
 function writeMarkers(data) {
     fs.writeFileSync(MARKERS_FILE, JSON.stringify(data, null, 2), 'utf-8');
 }
+
+/**
+ * 解压 chat_history 下的所有 zip 文件
+ */
+function unzipAllChats() {
+    if (!fs.existsSync(CHAT_HISTORY_DIR)) return { success: true, count: 0 };
+    
+    const files = fs.readdirSync(CHAT_HISTORY_DIR);
+    const zips = files.filter(f => f.toLowerCase().endsWith('.zip'));
+    let count = 0;
+    let errors = [];
+
+    zips.forEach(zipFile => {
+        const zipPath = path.join(CHAT_HISTORY_DIR, zipFile);
+        const folderName = path.basename(zipFile, path.extname(zipFile));
+        const targetDir = path.join(CHAT_HISTORY_DIR, folderName);
+
+        try {
+            // 如果目标文件夹已存在，adm-zip 会合并/覆盖
+            const zip = new AdmZip(zipPath);
+            zip.extractAllTo(targetDir, true);
+            
+            // 只有解压成功（没有抛出异常）才删除原压缩包
+            fs.unlinkSync(zipPath);
+            count++;
+        } catch (err) {
+            console.error(`[Unzip] 失败 ${zipFile}:`, err);
+            errors.push(`${zipFile}: ${err.message}`);
+        }
+    });
+
+    return { 
+        success: errors.length === 0, 
+        count, 
+        errors,
+        message: errors.length === 0 ? `成功解压 ${count} 个包` : `解压完成，但有 ${errors.length} 个失败`
+    };
+}
+
+// ============ API 路由 ============
+
+// 一键解压
+app.post('/api/unzip-chats', (req, res) => {
+    try {
+        const result = unzipAllChats();
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
 
 /**
  * 列出 chat_history 下所有对话条目

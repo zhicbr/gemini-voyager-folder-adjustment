@@ -30,6 +30,13 @@ function initTheme() {
 }
 
 async function loadInitialData() {
+    // 启动时静默尝试解压所有 zip 包
+    try {
+        await API.unzipChats();
+    } catch (e) {
+        console.warn("启动自动解压失败", e);
+    }
+
     // 加载关联数据
     try {
         const data = await API.getAssociations();
@@ -239,6 +246,35 @@ function switchToMarkers() {
     document.getElementById('tabMarkers').classList.add('active');
     document.getElementById('tabExplorer').classList.remove('active');
     renderAll();
+}
+
+async function unzipChatPackages() {
+    const btn = event ? event.currentTarget : null;
+    if (btn) {
+        btn.innerHTML = '⏳ 正在解压...';
+        btn.disabled = true;
+    }
+
+    try {
+        const data = await API.unzipChats();
+        if (data.success) {
+            if (data.count > 0) {
+                alert(data.message);
+                loadInitialData();
+            } else {
+                alert("未发现新的 zip 压缩包");
+            }
+        } else {
+            alert(`部分解压失败:\n${data.errors.join('\n')}`);
+        }
+    } catch (err) {
+        alert("请求解压服务失败: " + err.message);
+    } finally {
+        if (btn) {
+            btn.innerHTML = '📦 解压包';
+            btn.disabled = false;
+        }
+    }
 }
 
 function navigateToFolder(folderId) {
