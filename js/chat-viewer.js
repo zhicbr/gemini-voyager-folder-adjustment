@@ -119,21 +119,52 @@ async function removeChatAssociation() {
 
 document.getElementById('chatViewerBody').addEventListener('mouseup', handleMouseUp);
 
+// 全局监听点击，清除页面上的模拟高亮和划词菜单
+document.addEventListener('mousedown', (e) => {
+    if (window.CSS && CSS.highlights) {
+        CSS.highlights.delete("my-custom-highlight");
+    }
+    const oldMenu = document.querySelector('.marker-menu');
+    if (oldMenu && !oldMenu.contains(e.target)) {
+        oldMenu.remove();
+    }
+});
+
+// 全局监听右键菜单，针对对话查看器进行强制屏蔽
+window.addEventListener('contextmenu', e => {
+    const modal = document.getElementById('chatViewerModal');
+    if (modal && modal.style.display === 'flex') {
+        if (e.target.closest('#chatViewerBody')) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+        }
+    }
+}, true);
+
 function handleMouseUp(e) {
     const selection = window.getSelection();
-    const text = selection.toString().trim();
-    
-    // 清除旧菜单
-    const oldMenu = document.querySelector('.marker-menu');
-    if (oldMenu) oldMenu.remove();
+    if (selection.isCollapsed) return;
 
+    const text = selection.toString().trim();
     if (!text || text.length < 2) return;
 
-    // 某些情况下 selection 对象会有多个 range 或位置计算异常，简单处理
+    // 1. 获取原生的 Range 范围和位置
     const range = selection.getRangeAt(0);
     const rect = range.getBoundingClientRect();
     
-    // 在选区上方居中显示
+    // 2. 尝试阻止事件冒泡，减少部分浏览器插件的划词弹出干扰
+    e.stopPropagation();
+
+    // 3. 使用 CSS Highlight API 维持视觉上的高亮效果 (屏蔽 Edge 菜单的核心)
+    if (window.CSS && CSS.highlights) {
+        const highlight = new Highlight(range.cloneRange());
+        CSS.highlights.set("my-custom-highlight", highlight);
+    }
+    
+    // 4. 立即清除原生选区，让浏览器认为没有选词（从而屏蔽原生菜单）
+    selection.removeAllRanges();
+
+    // 5. 显示自定义菜单
     showMarkerMenu(rect.left + rect.width / 2, rect.top - 10, text);
 }
 
@@ -162,17 +193,6 @@ function showMarkerMenu(x, y, text) {
     menu.appendChild(bmBtn);
 
     document.body.appendChild(menu);
-
-    // 点击其他地方关闭菜单
-    setTimeout(() => {
-        const closer = (event) => {
-            if (!menu.contains(event.target)) {
-                menu.remove();
-                document.removeEventListener('mousedown', closer);
-            }
-        };
-        document.addEventListener('mousedown', closer);
-    }, 10);
 }
 
 async function addHighlight(text) {

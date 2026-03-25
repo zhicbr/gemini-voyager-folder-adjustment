@@ -1279,3 +1279,9 @@ mark.hl-bookmark {
     border-left: 4px solid #fbbc04;
     background: var(--surface);
 }
+
+/* 模拟原生的蓝色高亮状态，用于屏蔽 Edge 划词菜单 */
+::highlight(my-custom-highlight) {
+    background-color: #b4d5fe;
+    color: #000;
+}
