@@ -6,6 +6,7 @@ const app = express();
 const PORT = 3000;
 const CHAT_HISTORY_DIR = path.join(__dirname, 'chat_history');
 const ASSOCIATIONS_FILE = path.join(__dirname, 'chat_associations.json');
+const MARKERS_FILE = path.join(__dirname, 'markers.json');
 
 app.use(express.json({ limit: '50mb' }));
 
@@ -34,6 +35,25 @@ function readAssociations() {
 
 function writeAssociations(data) {
     fs.writeFileSync(ASSOCIATIONS_FILE, JSON.stringify(data, null, 2), 'utf-8');
+}
+
+function ensureMarkersFile() {
+    if (!fs.existsSync(MARKERS_FILE)) {
+        fs.writeFileSync(MARKERS_FILE, JSON.stringify({ highlights: [], bookmarks: [] }, null, 2), 'utf-8');
+    }
+}
+
+function readMarkers() {
+    ensureMarkersFile();
+    try {
+        return JSON.parse(fs.readFileSync(MARKERS_FILE, 'utf-8'));
+    } catch {
+        return { highlights: [], bookmarks: [] };
+    }
+}
+
+function writeMarkers(data) {
+    fs.writeFileSync(MARKERS_FILE, JSON.stringify(data, null, 2), 'utf-8');
 }
 
 /**
@@ -316,10 +336,30 @@ app.get('/api/search-messages', (req, res) => {
     }
 });
 
+// 获取所有标记 (划词与收藏)
+app.get('/api/markers', (req, res) => {
+    try {
+        res.json({ success: true, data: readMarkers() });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// 保存标记数据
+app.post('/api/markers', (req, res) => {
+    try {
+        writeMarkers(req.body);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 // ============ 启动 ============
 
 app.listen(PORT, () => {
     ensureAssociationsFile();
+    ensureMarkersFile();
     console.log(`\n  🚀 Gemini Voyager 数据管理器已启动！`);
     console.log(`  📂 打开浏览器访问: http://localhost:${PORT}\n`);
 });
